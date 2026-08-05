@@ -41,9 +41,21 @@ type Segment interface {
 }
 
 // Truncatable is implemented by segments that can shrink in place rather than
-// disappearing. The fitter (M3) asks in ascending drop order.
+// disappearing. Stage 2 of the fitter asks in ascending drop order (PRD §5.6).
+//
+// It takes the Context and re-renders, rather than taking the already-rendered
+// output and cutting it down. Cutting would mean truncating a string that holds
+// escape sequences, and the result would be either a lost colour or a lost
+// reset — and there would be nowhere to put the ellipsis in the right colour. A
+// segment shortening its own input is the only version that stays correct in
+// both halves of Rendered.
+//
+// cells is the target width, not the amount to remove. A segment returns the
+// narrowest rendering it is willing to produce, which may be wider than asked:
+// §5.6 floors the branch at 8 cells and the model at 10, and stage 3 exists
+// precisely because stage 2 is allowed to refuse.
 type Truncatable interface {
-	Truncate(r Rendered, cells int) Rendered
+	Truncate(ctx Context, cells int) Rendered
 }
 
 // Context is everything a segment may read.
@@ -78,14 +90,19 @@ func pre(r Rendered) part {
 
 // expand substitutes {name} placeholders and nothing else.
 //
-// PRD §5.7 makes this the entire grammar: no padding syntax, no escapes, no
-// conditionals. A template language here would be a second, worse config
-// format that every segment then has to validate against.
+// The grammar is config.Tokenize's, not a second copy of it. PRD §5.7 requires
+// the placeholder table be defined once and consumed by both the validator and
+// every segment's renderer; two scanners would become two grammars the moment
+// one of them handled an unterminated `{` differently, and the symptom would be
+// a format that validates cleanly and renders as literal braces.
 //
 // literalColor styles the text between placeholders — the `/` in `+150/-30`,
-// the `%` after a percentage. An unknown placeholder is left verbatim so a typo
-// is visible on screen rather than silently deleting content; `config` and
-// `doctor` reject it properly at M3/M5.
+// the `%` after a percentage.
+//
+// An unknown placeholder is left verbatim. It should be unreachable, because
+// config.Validate has already replaced any format naming one; this is the
+// defence for a Config built in code rather than loaded, where showing `{foo}`
+// on screen beats silently deleting content.
 func expand(st *style.Style, format, literalColor string, vars map[string]part) Rendered {
 	var parts []part
 
@@ -104,30 +121,17 @@ func expand(st *style.Style, format, literalColor string, vars map[string]part) 
 		parts = append(parts, part{plain: s, color: literalColor})
 	}
 
-	rest := format
-	for {
-		open := strings.IndexByte(rest, '{')
-		if open < 0 {
-			emitLiteral(rest)
-			break
+	for _, tok := range config.Tokenize(format) {
+		switch {
+		case !tok.Placeholder:
+			emitLiteral(tok.Text)
+		default:
+			if p, ok := vars[tok.Text]; ok {
+				parts = append(parts, p)
+			} else {
+				emitLiteral("{" + tok.Text + "}")
+			}
 		}
-		closing := strings.IndexByte(rest[open:], '}')
-		if closing < 0 {
-			emitLiteral(rest)
-			break
-		}
-		closing += open
-
-		emitLiteral(rest[:open])
-		if p, ok := vars[rest[open+1:closing]]; ok {
-			parts = append(parts, p)
-		} else {
-			// An unknown placeholder is left verbatim so a typo is visible on
-			// screen rather than silently deleting content. `config` and
-			// `doctor` reject it properly at M3 and M5.
-			emitLiteral(rest[open : closing+1])
-		}
-		rest = rest[closing+1:]
 	}
 
 	return assemble(st, parts)

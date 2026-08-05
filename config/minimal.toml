@@ -1,0 +1,35 @@
+# cc-statusline — one line, nothing that moves on its own.
+#
+# The context bar and the branch answer "how much room is left" and "where am
+# I"; everything else is dropped rather than compressed. Costs one terminal row
+# per prompt instead of two.
+#
+# Install with:  cc-statusline init --preset minimal
+# Every key not named here keeps its default; see default.toml for the full set.
+
+[general]
+# Line 1 is short enough that the reserve is the only thing likely to clip it.
+width_reserve = 12
+
+[bar]
+width = 8
+
+[git]
+branch_max_len = 16
+
+[context]
+# On one line the size marker is the cheapest way to keep 45% honest — it means
+# something different against 200k than against 1M.
+show_size = "always"
+
+# A single [[line]] block is a single rendered row.
+#
+# `context` and `branch` never drop; on a narrow terminal the bar shrinks and
+# the branch name truncates rather than either disappearing. `model` is
+# droppable here, unlike the default preset: on one line the room it takes is
+# better spent on the two segments that change.
+[[line]]
+segments = [
+  {name="context", drop=99}, {name="branch", drop=99},
+  {name="model", drop=6}, {name="cost", drop=4},
+]

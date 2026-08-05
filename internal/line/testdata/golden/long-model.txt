@@ -1,0 +1,75 @@
+--- ascii plain 40
+* Claude Opus 4.6. | 70% 1M
+> release/2026-08-candida.
+--- ascii plain 80
+* Claude Opus 4.6 Extended Thinking Preview (1M context) | 70% 1M
+> release/2026-08-candida. | some-rather-long-project-name
+--- ascii plain 120
+* Claude Opus 4.6 Extended Thinking Preview (1M context) | #######--- 70% 1M | $107.43 | 5h:94% 7d:71%
+> release/2026-08-candida. | +12480/-9137 | some-rather-long-project-name
+--- ascii plain 200
+* Claude Opus 4.6 Extended Thinking Preview (1M context) | #######--- 70% 1M | $107.43 | 2d5h | 5h:94% 7d:71%
+> release/2026-08-candida. | +12480/-9137 | some-rather-long-project-name
+--- ascii powerline 40
+* Claude Opus 4.6. | 70% 1M
+> release/2026-08-candida.
+--- ascii powerline 80
+* Claude Opus 4.6 Extended Thinking Preview (1M context) | 70% 1M
+> release/2026-08-candida. | some-rather-long-project-name
+--- ascii powerline 120
+* Claude Opus 4.6 Extended Thinking Preview (1M context) | #######--- 70% 1M | $107.43 | 5h:94% 7d:71%
+> release/2026-08-candida. | +12480/-9137 | some-rather-long-project-name
+--- ascii powerline 200
+* Claude Opus 4.6 Extended Thinking Preview (1M context) | #######--- 70% 1M | $107.43 | 2d5h | 5h:94% 7d:71%
+> release/2026-08-candida. | +12480/-9137 | some-rather-long-project-name
+--- unicode plain 40
+◆ Claude Opus 4.6… │ 70% 1M
+⎇ release/2026-08-candida…
+--- unicode plain 80
+◆ Claude Opus 4.6 Extended Thinking Preview (1M context) │ 70% 1M
+⎇ release/2026-08-candida… │ some-rather-long-project-name
+--- unicode plain 120
+◆ Claude Opus 4.6 Extended Thinking Preview (1M context) │ ▓▓▓▓▓▓▓░░░ 70% 1M │ $107.43 │ 5h:94% 7d:71%
+⎇ release/2026-08-candida… │ +12480/-9137 │ some-rather-long-project-name
+--- unicode plain 200
+◆ Claude Opus 4.6 Extended Thinking Preview (1M context) │ ▓▓▓▓▓▓▓░░░ 70% 1M │ $107.43 │ 2d5h │ 5h:94% 7d:71%
+⎇ release/2026-08-candida… │ +12480/-9137 │ some-rather-long-project-name
+--- unicode powerline 40
+◆ Claude Opus 4.6… │ 70% 1M
+⎇ release/2026-08-candida…
+--- unicode powerline 80
+◆ Claude Opus 4.6 Extended Thinking Preview (1M context) │ 70% 1M
+⎇ release/2026-08-candida… │ some-rather-long-project-name
+--- unicode powerline 120
+◆ Claude Opus 4.6 Extended Thinking Preview (1M context) │ ▓▓▓▓▓▓▓░░░ 70% 1M │ $107.43 │ 5h:94% 7d:71%
+⎇ release/2026-08-candida… │ +12480/-9137 │ some-rather-long-project-name
+--- unicode powerline 200
+◆ Claude Opus 4.6 Extended Thinking Preview (1M context) │ ▓▓▓▓▓▓▓░░░ 70% 1M │ $107.43 │ 2d5h │ 5h:94% 7d:71%
+⎇ release/2026-08-candida… │ +12480/-9137 │ some-rather-long-project-name
+--- nerdfont plain 40
+󰚩 Claude Opus 4.6…  70% 1M
+ release/2026-08-candida…
+--- nerdfont plain 80
+󰚩 Claude Opus 4.6 Extended Thinking Preview (1M context)  70% 1M
+ release/2026-08-candida…  some-rather-long-project-name
+--- nerdfont plain 120
+󰚩 Claude Opus 4.6 Extended Thinking Preview (1M context)  ▓▓▓▓▓▓▓░░░ 70% 1M  $107.43  5h:94% 7d:71%
+ release/2026-08-candida…  +12480/-9137  some-rather-long-project-name
+--- nerdfont plain 200
+󰚩 Claude Opus 4.6 Extended Thinking Preview (1M context)  ▓▓▓▓▓▓▓░░░ 70% 1M  $107.43  2d5h  5h:94% 7d:71%
+ release/2026-08-candida…  +12480/-9137  some-rather-long-project-name
+--- nerdfont powerline 40
+󰚩 Claude Opus 4.6…  70% 1M
+ release/2026-08-candida…
+--- nerdfont powerline 80
+󰚩 Claude Opus 4.6 Extended Thinking Preview (1M context)  70% 1M
+ release/2026-08-candida…  some-rather-long-project-name
+--- nerdfont powerline 120
+󰚩 Claude Opus 4.6 Extended Thinking Preview (1M context)  ▓▓▓▓▓▓▓░░░ 70% 1M  $107.43  5h:94% 7d:71%
+ release/2026-08-candida…  +12480/-9137  some-rather-long-project-name
+--- nerdfont powerline 200
+󰚩 Claude Opus 4.6 Extended Thinking Preview (1M context)  ▓▓▓▓▓▓▓░░░ 70% 1M  $107.43  2d5h  5h:94% 7d:71%
+ release/2026-08-candida…  +12480/-9137  some-rather-long-project-name
+--- unicode plain 80 LANG=ja_JP.UTF-8
+◆ Claude Opus 4.6 Extended Thinking Preview (1M context) │ 70% 1M
+⎇ release/2026-08-candida… │ some-rather-long-project-name

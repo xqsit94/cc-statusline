@@ -34,11 +34,14 @@ func New(name string) (Segment, bool) {
 	}
 }
 
-// Names lists every registered segment, for `doctor` and for the M3 validator.
-func Names() []string {
-	return []string{"model", "context", "cost", "duration", "ratelimits",
-		"branch", "diffstat", "project"}
-}
+// Names lists every registered segment, for `doctor` and the M7 wizard.
+//
+// The list itself lives in config, because the validator has to reject an
+// unknown segment name and this package already imports that one. New is the
+// registry; config.SegmentNames is the vocabulary. TestRegistryMatchesConfig
+// asserts they agree in both directions — a name in one and not the other is
+// either a segment nobody can configure or a config key that renders nothing.
+func Names() []string { return config.SegmentNames }
 
 // Render assembles every configured line. PRD §5.2.
 //
@@ -69,29 +72,48 @@ func RenderPlain(ctx Context) []string {
 }
 
 func renderLine(ctx Context, l config.Line) Rendered {
-	var parts []Rendered
+	var items []fitted
 	for _, ref := range l.Segments {
 		seg, ok := New(ref.Name)
 		if !ok {
 			continue
 		}
 		if r := seg.Render(ctx); !r.Empty() {
-			parts = append(parts, r)
+			items = append(items, fitted{ref: ref, seg: seg, r: r})
 		}
 	}
-	if len(parts) == 0 {
+	if len(items) == 0 {
 		return Rendered{}
 	}
-	return joinRendered(parts, separator(ctx))
+	return fit(ctx, items, available(ctx))
 }
 
-// separator is the styled ` │ ` between segments.
+// separator is the styled ` │ ` between segments, or ` ` under Powerline.
 //
-// Powerline separators are M3: they need per-segment background colours to
-// look like anything other than a stray arrow, which is a change to how every
-// segment renders rather than to how they are joined.
+// # What Powerline means here, and what it does not
+//
+// A full Powerline prompt fills each segment with a background colour and draws
+// the arrow as the previous background against the next one, so the arrow reads
+// as a seam between two solid blocks. That needs a background colour per
+// segment and a contrasting foreground for the text on top — and PRD §7.2's
+// [colors] table has neither. Inventing a palette here would mean choosing
+// fifteen background colours and one text colour against a terminal background
+// nobody has looked at yet, which is precisely the class of decision §9.4's
+// visual gate exists to make.
+//
+// So this is the arrow as a separator glyph, in the separator colour: the shape
+// of Powerline without the fills. It is a real style that real prompts use, and
+// it is what CC_STATUSLINE_POWERLINE=1 delivers today. The filled variant is
+// C-6 in §14.1, to be settled at M4 when someone is looking at a terminal.
+//
+// Style.ClipStyled already appends a reset unconditionally, so the filled
+// variant would not need stage 3 revisited when it arrives.
 func separator(ctx Context) Rendered {
-	glyph := ctx.Style.Glyphs.Separator
+	g := ctx.Style.Glyphs
+	glyph := g.Separator
+	if ctx.Style.Caps.Powerline && g.PowerlineSep != "" {
+		glyph = g.PowerlineSep
+	}
 	return Rendered{
 		Styled: " " + ctx.Style.Paint("separator", glyph) + " ",
 		Plain:  " " + glyph + " ",

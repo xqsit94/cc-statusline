@@ -4,6 +4,7 @@ import (
 	"io"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
 	"github.com/muesli/termenv"
 	"github.com/xqsit94/cc-statusline/internal/config"
 )
@@ -17,6 +18,8 @@ type Style struct {
 	cfg      *config.Config
 	renderer *lipgloss.Renderer
 	cache    map[string]lipgloss.Style
+	width    *runewidth.Condition
+	ramp     Ramp
 }
 
 // NewStyle builds the renderer for one render.
@@ -40,14 +43,37 @@ func NewStyle(c Capabilities, cfg *config.Config) *Style {
 	if cfg == nil {
 		cfg = config.Defaults()
 	}
+	cond := newWidthCondition(c.Ambiguous)
+	glyphs := GlyphsFor(c.Icons, cfg)
+	// Must run after the icon set is chosen and with this render's width
+	// condition, because whether the bar's two cells agree depends on both.
+	balanceBarCells(&glyphs, cfg, cond.StringWidth)
+
 	return &Style{
 		Caps:     c,
-		Glyphs:   GlyphsFor(c.Icons, cfg),
+		Glyphs:   glyphs,
 		cfg:      cfg,
 		renderer: newRenderer(io.Discard, c.Profile),
 		cache:    map[string]lipgloss.Style{},
+		width:    cond,
+		ramp:     NewRamp(cfg.Colors.GradientStops),
 	}
 }
+
+// Gradient reports whether the bar's filled cells should be painted along the
+// ramp rather than in one flat band colour (PRD §5.5).
+//
+// Truecolor is required, and not as a nicety: the ramp's whole content is the
+// intermediate colours between stops, and a 256-colour downsample collapses
+// neighbouring cells onto the same palette entry. What survives is a bar with
+// three or four visible steps, which reads as a rendering fault rather than as
+// a gradient. The band colour is the better degradation.
+func (s *Style) Gradient() bool {
+	return s.cfg.Bar.Gradient && s.Caps.Profile == termenv.TrueColor && s.ramp.Valid()
+}
+
+// Ramp is the configured gradient. Callers should test Gradient first.
+func (s *Style) Ramp() Ramp { return s.ramp }
 
 // newRenderer is the single place a lipgloss.Renderer is constructed.
 //
@@ -123,42 +149,14 @@ func (s *Style) style(hex string) lipgloss.Style {
 }
 
 // Hex resolves a colour key to its configured hex value.
+//
+// The key list lives in config.ColorKeys, not in a switch here. A key named in
+// [colors] but missing from this function would render unpainted with no error
+// anywhere — the same silent-decoration failure Paint is written to tolerate,
+// which is precisely why it must not be possible to introduce by accident.
 func (s *Style) Hex(key string) string {
-	c := s.cfg.Colors
-	switch key {
-	case "model_marker":
-		return c.ModelMarker
-	case "model_name":
-		return c.ModelName
-	case "normal":
-		return c.Normal
-	case "warning":
-		return c.Warning
-	case "danger":
-		return c.Danger
-	case "cost":
-		return c.Cost
-	case "duration":
-		return c.Duration
-	case "ratelimit":
-		return c.RateLimit
-	case "branch":
-		return c.Branch
-	case "added":
-		return c.Added
-	case "removed":
-		return c.Removed
-	case "project":
-		return c.Project
-	case "separator":
-		return c.Separator
-	case "diffstat_delim":
-		return c.DiffstatDelim
-	case "bar_empty":
-		return c.BarEmpty
-	default:
-		return ""
-	}
+	hex, _ := s.cfg.Color(key)
+	return hex
 }
 
 // Colored reports whether this render will emit escape sequences at all.

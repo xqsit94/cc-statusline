@@ -15,14 +15,14 @@ func Defaults() *Config {
 	return &Config{
 		General: General{
 			Separator:       "auto",
-			Powerline:       "auto",
+			Powerline:       Flexible("auto"),
 			Icons:           "unicode",
 			Color:           "auto",
 			MaxWidth:        0,
 			WidthReserve:    12,
 			Padding:         0,
 			RefreshInterval: 60,
-			AmbiguousWidth:  "auto",
+			AmbiguousWidth:  Flexible("auto"),
 		},
 		Thresholds: Threshold{
 			Warning:       70,
@@ -63,14 +63,14 @@ func Defaults() *Config {
 		},
 		Lines: []Line{
 			{Segments: []SegmentRef{
-				{Name: "model", Drop: 99},
-				{Name: "context", Drop: 99},
+				{Name: "model", Drop: NeverDrop},
+				{Name: "context", Drop: NeverDrop},
 				{Name: "cost", Drop: 4},
 				{Name: "duration", Drop: 5},
 				{Name: "ratelimits", Drop: 3},
 			}},
 			{Segments: []SegmentRef{
-				{Name: "branch", Drop: 99},
+				{Name: "branch", Drop: NeverDrop},
 				{Name: "diffstat", Drop: 2},
 				{Name: "project", Drop: 1},
 			}},
@@ -99,3 +99,8 @@ func Defaults() *Config {
 
 // DefaultDrop is the drop priority for a segment that omits one (PRD §7.2).
 const DefaultDrop = 50
+
+// NeverDrop is the priority at which a segment is exempt from stage 1 of the
+// fitter (PRD §5.6). It is also the schema's upper bound: a larger number can
+// mean nothing more than "never", so validation clamps to it.
+const NeverDrop = 99

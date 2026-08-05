@@ -1,0 +1,152 @@
+# cc-statusline — the commented reference configuration.
+#
+# Every value below is the built-in default, so this file changes nothing if you
+# copy it verbatim. `cc-statusline init` puts a copy at
+# ~/.config/cc-statusline/config.toml; edit it there, not here.
+#
+# Anything invalid is silently replaced by the default shown here and reported
+# by `cc-statusline doctor`. A broken config never blanks your status line.
+
+[general]
+# "auto" takes the separator glyph from the icon set below: | for ascii,
+# │ for unicode and nerdfont. Set a literal string to override all three.
+separator        = "auto"
+
+# Powerline arrow separators. "auto" follows the icon set — on for nerdfont,
+# off otherwise — because the arrow glyph only exists in a patched font.
+powerline        = "auto"
+
+# "ascii" | "unicode" | "nerdfont". CC_STATUSLINE_ASCII=1 forces ascii for one
+# invocation without editing this file.
+icons            = "unicode"
+
+# "auto" | "none" | "16" | "256" | "truecolor". "auto" reads COLORTERM and TERM.
+# NO_COLOR always wins, whatever is set here.
+color            = "auto"
+
+# 0 reads COLUMNS from the environment. Set a number to pin the width.
+max_width        = 0
+
+# Cells kept clear on the right. Claude Code draws its own notifications there,
+# so a status line that fills the row gets overdrawn.
+width_reserve    = 12
+
+# Mirrors statusLine.padding in settings.json; `init` records yours here.
+padding          = 0
+
+# Seconds between refreshes; `init` writes this into settings.json.
+refresh_interval = 60
+
+# "auto" | 1 | 2 — how wide ▓ ░ ◆ ⚠ are. These are East Asian Ambiguous, so
+# they occupy two cells under a CJK locale. "auto" reads LC_ALL/LC_CTYPE/LANG.
+ambiguous_width  = "auto"
+
+# Context percentages at which the bar and the number change colour.
+[thresholds]
+warning          = 70
+danger           = 85
+ratelimit_warn   = 80
+
+[bar]
+enabled          = true
+width            = 10
+# "auto" takes the cell glyphs from the icon set. A literal must be one
+# character: the bar is drawn by repetition, so two would double its width.
+filled           = "auto"
+empty            = "auto"
+# Colour the filled cells along gradient_stops instead of one flat band colour.
+# Requires a truecolor terminal; degrades to the band colour otherwise.
+gradient         = true
+
+[git]
+enabled          = true
+branch_max_len   = 24
+
+[context]
+# "non_default" shows the window size only when it is not 200k, so its presence
+# carries information. "always" | "never" are the alternatives.
+show_size        = "non_default"
+
+# Colours are #rrggbb only. The three-digit #abc form is rejected, because the
+# renderer underneath accepts seven characters and would silently paint nothing.
+[colors]
+model_marker     = "#cba6f7"
+model_name       = "#89dceb"
+normal           = "#4ade80"
+warning          = "#facc15"
+danger           = "#ef4444"
+cost             = "#4ade80"
+duration         = "#6c7086"
+ratelimit        = "#6c7086"
+branch           = "#cba6f7"
+added            = "#4ade80"
+removed          = "#ef4444"
+project          = "#89b4fa"
+separator        = "#45475a"
+diffstat_delim   = "#45475a"
+bar_empty        = "#45475a"
+# Spaced evenly across the bar's fill and interpolated in sRGB.
+gradient_stops   = ["#4ade80", "#facc15", "#fb923c", "#ef4444"]
+
+# One [[line]] block per rendered row. Delete the second to get a single line,
+# or see minimal.toml.
+#
+# `drop`: when the row is too wide, the highest drop value goes first; ties
+# break rightmost-first. 99 never drops. Omitted means 50. Priorities are
+# scoped to their own line.
+#
+# Segments that never drop are shortened in place instead — the bar shrinks,
+# and long branch and model names are truncated with an ellipsis.
+[[line]]
+segments = [
+  {name="model", drop=99}, {name="context", drop=99}, {name="cost", drop=4},
+  {name="duration", drop=5}, {name="ratelimits", drop=3},
+]
+
+[[line]]
+segments = [
+  {name="branch", drop=99}, {name="diffstat", drop=2}, {name="project", drop=1},
+]
+
+# Format strings substitute {name} and nothing else. There is no padding syntax
+# and no escaping. A placeholder a segment does not supply is rejected, and the
+# default below is used instead.
+
+# {d} {h} {m}. `pad` zero-fills the minor unit: 1h05m rather than 1h5m.
+[segments.duration]
+under_hour = "{m}m"
+over_hour  = "{h}h{m}m"
+over_day   = "{d}d{h}h"
+pad        = false
+
+# {n}. Either window renders alone when the other is absent, and `join`
+# disappears with it.
+[segments.ratelimits]
+five_format  = "5h:{n}%"
+seven_format = "7d:{n}%"
+join         = " "
+
+# {bar} {n} {warn} {size}. {warn} and {size} carry their own leading space, so
+# one format string produces both "42%" and "92% ⚠ 1M".
+[segments.context]
+format = "{bar} {n}%{warn}{size}"
+
+# {added} {removed}
+[segments.diffstat]
+format = "+{added}/-{removed}"
+
+# {n}
+[segments.cost]
+format = "${n}"
+
+# {marker} {name}
+[segments.model]
+format = "{marker} {name}"
+
+# {name} — the branch glyph is prepended from the icon set, not from here.
+[segments.branch]
+format = "{name}"
+
+# {name}
+[segments.project]
+format = "{name}"

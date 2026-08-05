@@ -106,10 +106,42 @@ func TestReferenceStates(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := RenderPlain(ctxFor(t, tc.payload, nil, tc.branch))
+			// §5.1 states no width, and one of the four needs one.
+			//
+			// The danger state is 70 cells. `available` is
+			// `COLUMNS - 2×padding - width_reserve`, so at the default COLUMNS
+			// of 80 it is 68 — two cells short, and the fitter correctly drops
+			// `45m`. The reference state as written is what appears from 82
+			// columns up; TestReferenceStatesAtEighty records what happens
+			// below that. This is a gap in §5.1, not in the fitter.
+			env := map[string]string{"COLUMNS": "120"}
+			got := RenderPlain(ctxFor(t, tc.payload, env, tc.branch))
 			assertLines(t, got, tc.want)
 		})
 	}
+}
+
+// TestReferenceStatesAtEighty pins what the narrowest common terminal shows.
+//
+// 80 columns is the fallback when COLUMNS is unset, and §5.6's width_reserve of
+// 12 leaves 68 cells. Three of the four reference states fit; the danger state
+// is 70 and loses its duration. That is the fitter doing its job, and the point
+// of writing it down is that the next person to see `45m` missing at 80 columns
+// finds this test instead of filing a bug.
+func TestReferenceStatesAtEighty(t *testing.T) {
+	ctx := ctxFor(t, `{"model":{"display_name":"Claude Opus 4.6"},
+		"workspace":{"project_dir":"/home/u/api-server"},
+		"cost":{"total_cost_usd":15.30,"total_duration_ms":2700000,
+		        "total_lines_added":500,"total_lines_removed":120},
+		"context_window":{"context_window_size":1000000,"total_input_tokens":920000},
+		"rate_limits":{"five_hour":{"used_percentage":85},
+		               "seven_day":{"used_percentage":62}}}`,
+		map[string]string{"COLUMNS": "80"}, "main")
+
+	assertLines(t, RenderPlain(ctx), []string{
+		"◆ Claude Opus 4.6 │ ▓▓▓▓▓▓▓▓▓░ 92% ⚠ 1M │ $15.30 │ 5h:85% 7d:62%",
+		"⎇ main │ +500/-120 │ api-server",
+	})
 }
 
 func TestASCIIReferenceState(t *testing.T) {

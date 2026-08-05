@@ -8,7 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/xqsit94/cc-statusline/internal/config"
 	"github.com/xqsit94/cc-statusline/internal/payload"
+	"github.com/xqsit94/cc-statusline/internal/style"
 )
 
 // M1's exit criterion (PRD §11): `{}` and malformed input render a fallback
@@ -67,7 +69,7 @@ func TestRenderRecoversFromAPanic(t *testing.T) {
 	t.Cleanup(func() { renderLines = original })
 
 	t.Run("panic yields the model name", func(t *testing.T) {
-		renderLines = func(p *payload.Payload, env map[string]string) []string {
+		renderLines = func(p *payload.Payload, _ *config.Config, _ style.Capabilities, _ map[string]string) []string {
 			panic("segment exploded")
 		}
 		var out bytes.Buffer
@@ -82,7 +84,7 @@ func TestRenderRecoversFromAPanic(t *testing.T) {
 	t.Run("buffer is reset before the fallback", func(t *testing.T) {
 		// A segment that writes a partial line and then dies must not leave
 		// that fragment on screen ahead of the fallback.
-		renderLines = func(p *payload.Payload, env map[string]string) []string {
+		renderLines = func(p *payload.Payload, _ *config.Config, _ style.Capabilities, _ map[string]string) []string {
 			defer panic("died after emitting")
 			return []string{"PARTIAL-LINE-THAT-MUST-NOT-SURVIVE"}
 		}
@@ -98,7 +100,9 @@ func TestRenderRecoversFromAPanic(t *testing.T) {
 	})
 
 	t.Run("panic with no payload still prints a line", func(t *testing.T) {
-		renderLines = func(p *payload.Payload, env map[string]string) []string { panic("nope") }
+		renderLines = func(p *payload.Payload, _ *config.Config, _ style.Capabilities, _ map[string]string) []string {
+			panic("nope")
+		}
 		var out bytes.Buffer
 		Render(nil, nil, strings.NewReader("garbage"), &out)
 		if got, want := out.String(), "cc-statusline\n"; got != want {
@@ -120,7 +124,9 @@ func TestRenderNeverEmitsAnEmptyLine(t *testing.T) {
 		"nil":          nil,
 	} {
 		t.Run(name, func(t *testing.T) {
-			renderLines = func(p *payload.Payload, env map[string]string) []string { return lines }
+			renderLines = func(p *payload.Payload, _ *config.Config, _ style.Capabilities, _ map[string]string) []string {
+				return lines
+			}
 			var out bytes.Buffer
 			Render(nil, nil, strings.NewReader(realPayload), &out)
 			if got, want := out.String(), "◆ Opus 5 (1M context)\n"; got != want {

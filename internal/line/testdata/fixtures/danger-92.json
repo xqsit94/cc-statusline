@@ -1,0 +1,19 @@
+{
+  "model": {"id": "claude-opus-4-6", "display_name": "Claude Opus 4.6"},
+  "workspace": {"current_dir": "/home/u/api-server", "project_dir": "/home/u/api-server"},
+  "cost": {
+    "total_cost_usd": 15.30,
+    "total_duration_ms": 2700000,
+    "total_lines_added": 500,
+    "total_lines_removed": 120
+  },
+  "context_window": {
+    "context_window_size": 1000000,
+    "total_input_tokens": 920000,
+    "used_percentage": 92
+  },
+  "rate_limits": {
+    "five_hour": {"used_percentage": 85},
+    "seven_day": {"used_percentage": 62}
+  }
+}

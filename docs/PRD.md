@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | DRAFT (rev 6, post two adversarial rounds + one engineering review + outside voice + M0 measurement + M2 correction) |
+| **Status** | DRAFT (rev 7, post two adversarial rounds + one engineering review + outside voice + M0 measurement + M2 and M3 corrections) |
 | **Version** | 0.1.0 |
 | **Date** | 2026-08-05 |
 | **Owner** | xqsit94 |
@@ -423,7 +423,27 @@ Every arrow is in-process. Nothing forks, nothing dials, nothing awaits.
 
 ### 5.1 Reference states
 
-Byte-identical acceptance criteria for the default preset.
+Byte-identical acceptance criteria for the default preset, **at 82 columns or
+wider**.
+
+> **The width qualifier is new in rev 7, and it is not cosmetic.** M3 measured
+> the four states at 62, 59, 70, and 44 cells. §5.6's budget is
+> `COLUMNS - 2×padding - width_reserve`, so the default 80 columns leaves 68 —
+> two cells short of the danger state, which therefore drops its duration and
+> renders as
+> `◆ Claude Opus 4.6 │ ▓▓▓▓▓▓▓▓▓░ 92% ⚠ 1M │ $15.30 │ 5h:85% 7d:62%`.
+>
+> That is the fitter behaving exactly as §5.6 specifies. What was wrong was
+> §5.1, which stated four byte-identical criteria without stating the width at
+> which any of them holds — so the danger state was unsatisfiable at the
+> document's own default. `TestReferenceStatesAtEighty` pins the 80-column
+> rendering so the next person to notice `45m` missing finds a test rather than
+> files a bug.
+>
+> Whether `width_reserve = 12` is the right number is a separate question, and
+> one nobody can answer from a document: it exists to avoid Claude Code's own
+> notifications, and 10 would make the danger state fit at 80 exactly. Settled
+> at M4, in front of a terminal.
 
 **Normal (42%)**
 ```
@@ -592,10 +612,41 @@ All width math runs on `Rendered.Plain` via `github.com/mattn/go-runewidth`,
 never `len()` or `utf8.RuneCountInString`. ANSI-stripping at measure time is
 prohibited.
 
-> **Ambiguous-width glyphs.** `▓` `░` `◆` `⚠` are East Asian Ambiguous and render
-> double-width in many terminals under a CJK locale. `runewidth.EastAsianWidth` is
-> set from `LC_CTYPE` / `LANG`, and `[general] ambiguous_width = "auto" | 1 | 2`
-> is an explicit escape hatch. See §9.4 — this cannot be validated by goldens.
+> **Ambiguous-width glyphs — corrected at M3.** Rev 6 asserted that `▓` `░` `◆`
+> `⚠` are East Asian Ambiguous. Measured against Unicode's `EastAsianWidth.txt`,
+> the list was wrong in both directions:
+>
+> | glyph | | class | | glyph | | class |
+> |---|---|---|---|---|---|---|
+> | `▓` | U+2593 dark shade | **A** | | `⚠` | U+26A0 warning sign | **N** ← claimed A |
+> | `◆` | U+25C6 black diamond | **A** | | `░` | U+2591 light shade | **N** ← claimed A |
+> | `│` | U+2502 box drawings | **A** ← omitted | | `⎇` | U+2387 alternative key | **N** |
+> | `…` | U+2026 ellipsis | **A** ← omitted | | | | |
+>
+> U+2591 is the odd one out among the shade blocks — U+2592 and U+2593 are both
+> Ambiguous — and that single discrepancy is load-bearing. **The bar's filled and
+> empty cells would fall in different width classes**, so under a CJK locale a
+> ten-cell bar is ten columns at 0% and twenty at 100%: line 1 grows by up to ten
+> columns as the session fills, and the fitter drops the cost and then the
+> duration for a reason that has nothing to do with either.
+>
+> **Rule.** The bar's two cells must share a display width. When they do not and
+> neither was set explicitly, the empty cell is substituted — `▒` U+2592, which
+> is Ambiguous and is `░`'s nearest visual relative. Under `ambiguous_width = 1`
+> the substitution never fires and the default appearance is unchanged. An
+> explicitly configured `[bar].filled` or `[bar].empty` is left alone, per §6.2's
+> override rule; silently replacing a glyph a user named is a worse surprise than
+> the wobble.
+>
+> The Nerd Font column is entirely Private Use Area, which is uniformly
+> Ambiguous, so it is already consistent.
+>
+> `runewidth.EastAsianWidth` is set from `LC_ALL` / `LC_CTYPE` / `LANG` on a
+> per-`Style` `runewidth.Condition`, never the package global — §6.4's purity
+> requirement, and what lets M7's wizard preview a locale it is not running in.
+> `[general] ambiguous_width = "auto" | 1 | 2` is the explicit escape hatch. See
+> §9.4: goldens measure with the same library the code does, so they can confirm
+> the arithmetic is self-consistent and never that a terminal agrees with it.
 
 **Fitting** runs per line, independently, in three escalating stages:
 
@@ -609,7 +660,7 @@ prohibited.
              │ still over?
       ┌──────┴──────┐
       │   STAGE 2   │  ask each Truncatable, ascending drop order
-      │  TRUNCATE   │  branch floors at 8 cells, model at 10
+      │  TRUNCATE   │  branch floors at 8 cells, model at 10, bar at 3
       └──────┬──────┘
              │ still over?
       ┌──────┴──────┐
@@ -634,6 +685,29 @@ Stage 3 is what makes never-wrap a guarantee rather than an aspiration.
 limits are §1's question 3 and the duration is the least actionable thing on the
 line. The bar no longer competes for a drop slot at all: it lives inside
 `context` and shrinks there.
+
+**Two rules M3 had to add, because the diagram above underspecified stage 2.**
+
+*Ties in stage 2 break rightmost-first*, the same rule §5.6 already states for
+stage 1. It is not only consistency: on the default preset `model` and `context`
+are both marked never-drop, so the tie-break is what decides which gives way.
+Rightmost-first asks `context` first, so the bar sheds cells before the model
+name loses characters — and the bar's information survives intact in the `42%`
+beside it, while the model name's does not survive anywhere.
+
+*The bar floors at 3 cells and is dropped outright below that.* §5.6 gave floors
+for the branch and the model and none for the bar, and the omission shows: a
+two-cell bar quantises every percentage into halves and reads as a rendering
+artefact. Dropping it also frees more room than shrinking it, because `{bar} `
+takes its trailing space with it. The percentage is never touched — `92%` already
+says everything the bar says, and the bar's value is peripheral-vision *shape*,
+which is exactly what does not survive being two cells wide.
+
+**Stage 2 may refuse.** A segment at its floor returns unchanged, which is
+legitimate and is why stage 3 exists. A `Truncatable` takes the render context
+and re-renders at a target width rather than being handed its own output to cut
+down: cutting a string that holds escape sequences loses either a colour or a
+reset, and leaves nowhere to put the ellipsis in the right colour.
 
 ### 5.7 Formatting rules
 
@@ -681,10 +755,32 @@ Valid placeholders:
 | `segments.branch.format` | `{name}` |
 | `segments.project.format` | `{name}` |
 
-This table is defined **once**, in `config/validate.go`, and consumed by both the
-validator and every segment's renderer. Duplicating it is the one repetition that
-would silently drift: validation would pass while render emitted nothing. A test
-asserts every key in the table is reachable from its segment.
+This table is defined **once**, in `internal/config/keys.go` as
+`config.FormatKeys`, with a getter and setter attached to each row. The validator
+walks it to repair; `internal/line` walks it in a test to prove every listed
+placeholder actually renders. Duplicating it is the one repetition that would
+silently drift: validation would pass while render emitted literal `{braces}`.
+
+Two consequences M3 made explicit:
+
+- **The grammar itself is also defined once** — `config.Tokenize`, used by the
+  validator and by the segment expander. Two scanners would become two grammars
+  the moment one of them handled an unterminated `{` differently, and the symptom
+  would be a format that validates cleanly and renders as braces. An unterminated
+  `{` is literal text.
+- **The duration segment supplies all three of `{d}` `{h}` `{m}` in every
+  branch**, not just the ones its default format for that branch uses. The table
+  gives all three to all three keys, so `under_hour = "{h}h{m}m"` must render
+  `0h45m` — supplying only the subset would let that config validate and then
+  print `{h}` on the status line. Only which unit `pad` zero-fills varies by
+  branch.
+
+The same treatment applies to `[colors]`: `config.ColorKeys` enumerates the
+fifteen scalar keys with accessors, and `internal/style` resolves through it
+rather than through a switch of its own. `Paint` returns text unstyled for an
+unknown key — a colour is decoration, and a render path that can fail on
+decoration can blank the line — which is precisely why a key missing from one
+side must be impossible to introduce rather than tolerated at runtime.
 
 ### 5.8 Git discovery
 
@@ -867,6 +963,19 @@ The repo's `config/` folder ships presets and the commented reference. It is not
 read at runtime; `init` copies a preset into the XDG location, which keeps
 `go install` working.
 
+**The presets are embedded, which is what makes that sentence true.**
+`go install …@latest` leaves no repository on disk, so `init` has nowhere to copy
+a preset *from* unless the bytes are in the binary. `config/embed.go` declares
+`package presets` beside the `.toml` files — `//go:embed` cannot reach across a
+parent directory, which is why the Go file lives there rather than the presets
+living under `internal/`. Nothing opens a file at runtime.
+
+`default.toml` is documentation that happens to be executable: every value in it
+is the embedded default, so installing it verbatim changes nothing. A test loads
+it through the ordinary path and asserts it decodes to exactly `config.Defaults()`
+with zero repairs — without which the file users read and the behaviour they get
+would drift apart the first time a default moved.
+
 **Invalid config behaves identically everywhere: silently default.** `render`,
 `config`, `init`, and `doctor` all fall back to the embedded default for any
 invalid key, and all record what was defaulted. `doctor` reports it and `render`
@@ -981,6 +1090,19 @@ strings are reachable for every segment.
 See §6.1. Mapping: `ASCII`/`NERDFONT` → `general.icons`; `POWERLINE` →
 `general.powerline`; `COLOR` → `general.color`; `NO_GIT` → `git.enabled`;
 `CONFIG` → file selection; `NO_COLOR` → `general.color = "none"`.
+
+**Where each is applied, and why it is not all one place.** `CONFIG` resolves in
+`config.Path`. `NO_GIT` folds into `git.enabled` in `config.Load`, so nothing
+downstream reads the variable — one switch, checked once, which is what keeps
+M7's preview and the real render from disagreeing about it.
+
+The other four resolve in `internal/style`, not in the config overlay, because
+§6.3 defines an order that **interleaves** environment and configuration:
+`NO_COLOR` and `TERM` outrank `CC_STATUSLINE_COLOR`, which outranks
+`general.color`, which outranks `COLORTERM`. Folding the environment into the
+config first would flatten that order — `general.color` would beat the
+`COLORTERM` check specified to follow it. They resolve at the one point where the
+whole order is visible in a single function.
 
 ---
 
@@ -1228,7 +1350,7 @@ is driven by config concepts), and the README moved to M6 with the first release
 | ~~**M0 Spike**~~ **DONE** | `capture` + `report` in `internal/spike`. 35 payloads. | ✅ §3.1.1 answered. Residual: C-4 (compaction point), C-5 (200k + startup) |
 | ~~**M1 Skeleton**~~ **DONE** | Module, payload structs, `(value, ok)` accessors, key diff, buffered output + recover contract, `render` / `capture` / `version` | ✅ 12 hostile inputs render a fallback line and exit 0; the recover is exercised by an injected panic |
 | ~~**M2 Render core**~~ **DONE** | Segment interface, 8 segments, `gitinfo` HEAD reader, plain joining, `Capabilities` struct, **§6.5 forced-TTY renderer** | ✅ All four §5.1 states byte-identical; colour survives a pipe at every profile |
-| **M3 Config + polish** | TOML schema, XDG resolution, env overlay, validation, 2 presets, gradient, glyph sets, powerline, go-runewidth, drop→truncate→clip | All four reference states match plain goldens |
+| ~~**M3 Config + polish**~~ **DONE** | TOML schema, XDG resolution, env overlay, validation, 2 presets, gradient, glyph sets, powerline, go-runewidth, drop→truncate→clip | ✅ All four reference states match plain goldens across 3 icon sets × 2 separator styles × 4 widths + a CJK row; no line exceeds `available` at any width from 10 to 200 |
 | **M4 Visual gate** | §9.4 manual pass across 4 terminals × 2 locales × 4 capability sets | Screenshots in the PR; glyphs and stops locked |
 | **M5 Install** | `init`, `uninstall`, `doctor`, `version`, sjson + comment refusal, GoReleaser, release workflow, `install.sh` + checksums, **README** | Clean machine, no Go, installs via curl and passes `env -i` |
 | **M6 Release v0.1** | Tag, publish, use it yourself for a week | One non-you user has it installed |
@@ -1315,6 +1437,36 @@ was in fact perfectly regular, because the value is rounded. Rounded metrics
 constrain a range, not a point — and a method that reports noise as a finding is
 worse than no method, because it looks like an answer.
 
+**M3 (rev 7)** found two things the document asserted that measurement
+contradicted, and one it never said at all.
+
+*§5.6's ambiguous-width list was wrong in both directions.* `░` and `⚠` are
+Neutral, not Ambiguous; `│` and `…` are Ambiguous and were omitted. The
+consequence was not academic: `▓` is Ambiguous and `░` is not, so under a CJK
+locale the bar's filled and empty cells fall in different width classes and a
+ten-cell bar spans ten columns at 0% and twenty at 100%. Line 1 would have grown
+by up to ten columns as the session filled, dropping the cost and then the
+duration for reasons unrelated to either. The bar's cells are now required to
+share a width class, with `▒` substituted for `░` when they do not. §5.6 carries
+the measured table.
+
+*§5.1's reference states were unsatisfiable at the document's own default width.*
+The danger state is 70 cells and the default 80-column budget is 68. §5.1 now
+states the width its criteria hold at, and a test pins the 80-column rendering
+separately. §14.1's C-7 is the follow-on question of whether `width_reserve = 12`
+was ever the right number.
+
+*Stage 2 of the fitter was underspecified.* §5.6 gave a tie-break rule for
+stage 1 only, and gave floors for the branch and the model but none for the bar
+— so a crowded line shrank the bar to two useless cells while leaving a
+fifty-character model name untouched. Ties now break rightmost-first in both
+stages, and the bar floors at 3 cells and is dropped outright below that.
+
+Powerline ships without background fills, recorded as C-6 rather than resolved by
+inventing a palette: §7.2 has no per-segment background colours, and choosing
+sixteen of them without a terminal in front of you is what §9.4 exists to
+prevent.
+
 **Rounds 1–2** fixed: the forced-TTY color trap (§6.5), the unsatisfiable bar-fill
 triple, cross-line drop ordering, non-hermetic git fixtures, the debounce
 misreading, the exit-code contract, `TIOCGWINSZ` under output capture, East Asian
@@ -1389,6 +1541,27 @@ session into a real compaction, then `cc-statusline report`. Blocks locking
 progress. The startup reference state and the `[1M]` size marker rest on the
 docs, not on measurement. Cheapest fix: one fresh session on a 200k model with
 the spike installed.
+
+**C-6 — Powerline ships without background fills (§6.2, M3).** A full Powerline
+prompt fills each segment with a background and draws the arrow as the previous
+background against the next, so the arrow reads as a seam between two solid
+blocks. That needs a background colour per segment and a contrasting foreground
+for the text on top, and §7.2's `[colors]` table has neither. Choosing fifteen
+backgrounds and one text colour against a terminal background nobody has looked
+at is precisely what §9.4's gate exists to prevent.
+
+What `CC_STATUSLINE_POWERLINE=1` delivers today is the arrow as a separator
+glyph in the separator colour — the shape of Powerline without the fills, which
+is a real style that real prompts use. Decide at M4 whether the filled variant is
+worth a palette. Stage 3 already appends its reset unconditionally, so the filled
+variant would not require revisiting the clip.
+
+**C-7 — `width_reserve = 12` is a guess, and §5.1 now depends on it (§5.6).**
+The value exists to keep clear of Claude Code's own notifications on the right of
+the same row, and was never measured. It is now load-bearing: at the default 80
+columns it is the two cells that stop the danger reference state from fitting.
+10 would make it fit exactly. Measure the notification width at M4 and set the
+default from that rather than from caution.
 
 ---
 

@@ -36,12 +36,19 @@ func Render(args []string, env map[string]string, stdin io.Reader, stdout io.Wri
 	var out bytes.Buffer
 	var p *payload.Payload
 
+	// The fallback's marker is a variable the deferred recover closes over, and
+	// it starts at the Unicode glyph so that the recover can never need
+	// anything that has not already been computed. It is narrowed to the
+	// resolved icon set below, once config exists — but a panic before that
+	// point still has a marker to print.
+	marker := glyphFallback
+
 	defer func() {
 		if r := recover(); r != nil {
 			// Reset first: the buffer may hold a half-written line, and the
 			// fallback has to be the only thing on stdout.
 			out.Reset()
-			out.WriteString(fallback(p))
+			out.WriteString(fallback(p, marker))
 			out.WriteByte('\n')
 			code = 0
 		}
@@ -58,7 +65,14 @@ func Render(args []string, env map[string]string, stdin io.Reader, stdout io.Wri
 	// nothing. The error itself becomes visible through `doctor` at M5.
 	p, _ = payload.Decode(src)
 
-	lines := renderLines(p, env)
+	// Loaded once, here, and handed down. Loading inside renderLines instead
+	// would read the config file twice on the hot path — once for the line and
+	// once for the fallback's glyph — for no gain.
+	cfg, _ := config.Load(env)
+	caps := style.Detect(env, cfg)
+	marker = style.GlyphsFor(caps.Icons, cfg).ModelMarker
+
+	lines := renderLines(p, cfg, caps, env)
 	for _, line := range lines {
 		if strings.TrimSpace(line) == "" {
 			continue
@@ -68,32 +82,36 @@ func Render(args []string, env map[string]string, stdin io.Reader, stdout io.Wri
 	}
 
 	// Last guard before the write: every line was empty, or there were none.
-	// M2's segments can all report absent at once — an empty payload does
-	// exactly that — and the contract still says one non-empty line.
+	// Every segment can report absent at once — an empty payload does exactly
+	// that — and the contract still says one non-empty line.
 	if out.Len() == 0 {
-		out.WriteString(fallback(p))
+		out.WriteString(fallback(p, marker))
 		out.WriteByte('\n')
 	}
 	return 0
 }
+
+// glyphFallback is the marker used before the icon set is known. It is the
+// Unicode column of PRD §6.2, which is also the default.
+const glyphFallback = "◆"
 
 // renderLines builds the status line body.
 //
 // It is a variable rather than a function so that tests can install a panicking
 // implementation and prove the recover above actually holds — a contract
 // nothing else can exercise, since correct code never panics.
-var renderLines = defaultRenderLines
+var renderLines func(*payload.Payload, *config.Config, style.Capabilities, map[string]string) []string = defaultRenderLines
 
 // defaultRenderLines is PRD §4.4's pipeline. Every arrow in that diagram is
 // in-process: nothing forks, nothing dials, nothing awaits.
 //
-// Config loading is still the embedded defaults only; the XDG file and the
-// CC_STATUSLINE_* overlay land at M3, which is why cfg is built rather than
-// loaded here.
-func defaultRenderLines(p *payload.Payload, env map[string]string) []string {
-	cfg := config.Defaults()
-	caps := style.Detect(env, cfg)
-
+// Its config comes from Render, already loaded and validated. config.Load
+// cannot fail: an unreadable file, a syntax error, an unknown key, an
+// out-of-range value — each becomes a note against a config that is still
+// complete and renderable (PRD §7.1). Render drops the notes because it has
+// nowhere to display them; M5 routes them to last-error.txt and `doctor`
+// reports them.
+func defaultRenderLines(p *payload.Payload, cfg *config.Config, caps style.Capabilities, env map[string]string) []string {
 	ctx := line.Context{
 		Payload: p,
 		Config:  cfg,
@@ -108,8 +126,12 @@ func defaultRenderLines(p *payload.Payload, env map[string]string) []string {
 // The starting directory is the payload's workspace.current_dir, never
 // os.Getwd(): a session whose directory was deleted underneath it makes Getwd
 // return ENOENT, and the branch would disappear for a reason unrelated to git.
+//
+// CC_STATUSLINE_NO_GIT is not read here. config.Load has already folded it into
+// git.enabled, which is the point of §7.3's overlay: one switch, checked once,
+// so the wizard's preview and the real render cannot disagree about it.
 func discoverGit(env map[string]string, p *payload.Payload, cfg *config.Config) gitinfo.Info {
-	if !cfg.Git.Enabled || truthy(env["CC_STATUSLINE_NO_GIT"]) {
+	if !cfg.Git.Enabled {
 		return gitinfo.Info{}
 	}
 	dir, ok := p.CurrentDir()
@@ -119,26 +141,21 @@ func discoverGit(env map[string]string, p *payload.Payload, cfg *config.Config) 
 	return gitinfo.Discover(env, dir)
 }
 
-func truthy(v string) bool {
-	switch strings.ToLower(strings.TrimSpace(v)) {
-	case "1", "true", "yes", "on":
-		return true
-	}
-	return false
-}
-
 // fallback is PRD §3.3's last line of defence: the model name if anything at
 // all survived decoding, otherwise the binary's own name so that the status
 // line is occupied by something a user can search for.
 //
-// The marker is hardcoded here. M3 routes it through the glyph set so ASCII
-// mode degrades it; until then a fallback under CLAUDE_STATUSLINE_ASCII=1 can
-// still emit `◆`, which is a cosmetic bug in a path that should almost never
-// run.
-func fallback(p *payload.Payload) string {
+// The marker is passed in rather than resolved here so that this function
+// cannot fail. It runs from inside a recover, where a second panic would take
+// the process down with nothing on stdout at all — which is the one outcome
+// §3.3 exists to prevent.
+//
+// It is deliberately unstyled. Colour would mean a Style, and a Style is built
+// from the config and capabilities that may be exactly what just panicked.
+func fallback(p *payload.Payload, marker string) string {
 	if p != nil {
 		if name, ok := p.ModelName(); ok && strings.TrimSpace(name) != "" {
-			return "◆ " + name
+			return marker + " " + name
 		}
 	}
 	return "cc-statusline"

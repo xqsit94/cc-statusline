@@ -99,21 +99,18 @@ func resolvePowerline(env map[string]string, cfg *config.Config) bool {
 	if v, ok := env["CC_STATUSLINE_POWERLINE"]; ok && v != "" {
 		return truthy(v)
 	}
-	switch strings.ToLower(cfg.General.Powerline) {
-	case "true", "1", "yes", "on":
-		return true
-	case "false", "0", "no", "off":
-		return false
-	default: // "auto" — follows the icon set
-		return icons == IconsNerdFont
+	if on, known := cfg.General.Powerline.Bool(); known {
+		return on
 	}
+	// "auto" — follows the icon set.
+	return icons == IconsNerdFont
 }
 
 // resolveAmbiguous decides how wide `▓` `░` `◆` `⚠` are. They are East Asian
 // Ambiguous, so a CJK locale renders them double-width and every width
 // calculation downstream doubles with them.
 func resolveAmbiguous(env map[string]string, cfg *config.Config) int {
-	switch cfg.General.AmbiguousWidth {
+	switch cfg.General.AmbiguousWidth.String() {
 	case "1":
 		return 1
 	case "2":

@@ -1,11 +1,36 @@
-// Package config holds cc-statusline's configuration schema (PRD §7.2).
+// Package config holds cc-statusline's configuration schema (PRD §7.2), loads
+// it from TOML, and repairs it.
 //
-// M2 ships the schema and the embedded defaults only. TOML loading, XDG
-// resolution, the CC_STATUSLINE_* overlay, and validation arrive at M3; the
-// struct is here now because PRD §6.4's capability resolution takes a
-// *config.Config, and writing that signature honestly today is what stops M7's
-// wizard from becoming a refactor of M2.
+// Three rules govern everything here:
+//
+//   - Loading never fails. PRD §7.1 requires that an invalid config behave
+//     identically in every command: silently default, and record what was
+//     defaulted. A config error that blanked the status line would be
+//     indistinguishable from a broken binary.
+//   - The environment is a map, never os.Getenv. Same reason as internal/style
+//     (PRD §6.4): M7's wizard has to resolve a preview under an environment it
+//     is not running in.
+//   - Format placeholders are enumerated once, in validate.go. Duplicating that
+//     table is the one repetition that would drift silently — validation would
+//     pass while render emitted nothing.
 package config
+
+import (
+	"fmt"
+	"strings"
+)
+
+// SegmentNames is every segment cc-statusline can render, in the order §5.3
+// lists them.
+//
+// It lives here rather than in internal/line because the validator has to
+// reject an unknown name and internal/line already imports this package. Line's
+// registry is the implementation; this is the name list, and a test in that
+// package asserts the two agree in both directions.
+var SegmentNames = []string{
+	"model", "context", "cost", "duration", "ratelimits",
+	"branch", "diffstat", "project",
+}
 
 // Config mirrors the TOML schema in PRD §7.2 one-for-one.
 type Config struct {
@@ -19,21 +44,21 @@ type Config struct {
 	Segments   Segments  `toml:"segments"`
 }
 
-// General's sentinel fields are strings because several accept more than one
-// TOML type — `powerline` is "auto" | true | false and `ambiguous_width` is
-// "auto" | 1 | 2. M3 adds an UnmarshalTOML that normalises the bool and integer
-// forms into these strings; until then nothing parses TOML at all, so the
-// looser type costs nothing and keeps one representation downstream.
+// General holds PRD §7.2's [general] table.
+//
+// Powerline and AmbiguousWidth are Flexible rather than string because the
+// schema accepts more than one TOML type for each — "auto" | true | false and
+// "auto" | 1 | 2. See flexible.go.
 type General struct {
-	Separator       string `toml:"separator"`
-	Powerline       string `toml:"powerline"`
-	Icons           string `toml:"icons"`
-	Color           string `toml:"color"`
-	MaxWidth        int    `toml:"max_width"`
-	WidthReserve    int    `toml:"width_reserve"`
-	Padding         int    `toml:"padding"`
-	RefreshInterval int    `toml:"refresh_interval"`
-	AmbiguousWidth  string `toml:"ambiguous_width"`
+	Separator       string   `toml:"separator"`
+	Powerline       Flexible `toml:"powerline"`
+	Icons           string   `toml:"icons"`
+	Color           string   `toml:"color"`
+	MaxWidth        int      `toml:"max_width"`
+	WidthReserve    int      `toml:"width_reserve"`
+	Padding         int      `toml:"padding"`
+	RefreshInterval int      `toml:"refresh_interval"`
+	AmbiguousWidth  Flexible `toml:"ambiguous_width"`
 }
 
 type Threshold struct {
@@ -89,6 +114,36 @@ type Line struct {
 type SegmentRef struct {
 	Name string `toml:"name"`
 	Drop int    `toml:"drop"`
+}
+
+// UnmarshalTOML decodes one `{name="…", drop=N}` inline table.
+//
+// It is hand-written for one reason: an omitted `drop` must become 50, and
+// struct decoding cannot express that. Without it, `{name="project"}` would
+// decode to drop 0 — the lowest priority in the schema, so the segment the user
+// declined to prioritise would become the last one standing.
+//
+// It also removes a subtler hazard. The decoder unifies an array of tables
+// element-by-element against whatever is already in the slice, so a file with
+// fewer segments than the defaults would have merged its entries onto unrelated
+// ones. Because SegmentRef decodes itself from a clean state, that cannot
+// happen regardless of what the defaults hold.
+func (s *SegmentRef) UnmarshalTOML(v any) error {
+	m, ok := v.(map[string]any)
+	if !ok {
+		return fmt.Errorf(`want an inline table like {name="model", drop=99}; got %T`, v)
+	}
+	*s = SegmentRef{Drop: DefaultDrop}
+	if name, ok := m["name"].(string); ok {
+		s.Name = strings.ToLower(strings.TrimSpace(name))
+	}
+	switch d := m["drop"].(type) {
+	case int64:
+		s.Drop = int(d)
+	case float64:
+		s.Drop = int(d)
+	}
+	return nil
 }
 
 type Segments struct {

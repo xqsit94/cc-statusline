@@ -38,6 +38,14 @@ and `/review` can see what was deferred without reading a 1,300-line spec.
 - [ ] **C-5: 200k window and the null-percentage startup state are unobserved.**
       — PRD §3.1.1, §14.1. Every M0 payload came from a 1M session already in
       progress. One fresh session on a 200k model closes both.
+- [ ] **C-6: Powerline ships without background fills.** — PRD §14.1, §6.2.
+      `CC_STATUSLINE_POWERLINE=1` swaps the separator glyph for the arrow and
+      nothing else, because §7.2's `[colors]` has no per-segment background.
+      Decide at M4 whether the filled variant earns a sixteen-colour palette.
+- [ ] **C-7: is `width_reserve = 12` the right number?** — PRD §14.1, §5.6.
+      Never measured, and now load-bearing: it is the two cells that stop §5.1's
+      danger state from fitting at 80 columns. Measure Claude Code's own
+      notification width at M4 and set the default from that.
 
 ## Unanswered strategic question
 
