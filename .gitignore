@@ -1,1 +1,6 @@
 bin/
+
+# GoReleaser's output. `make release-dry` fills this locally, and GoReleaser
+# refuses to build from a dirty tree — an untracked dist/ would block the real
+# release on the machine that had just rehearsed it.
+dist/

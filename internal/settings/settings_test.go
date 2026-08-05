@@ -14,6 +14,24 @@ func want() Desired {
 	return Desired{Type: "command", Command: "/opt/cc/cc-statusline render", RefreshInterval: 60}
 }
 
+// tempDir is testing.T's TempDir with symlinks already resolved.
+//
+// On macOS the temp dir is under /var/folders, and /var is itself a symlink to
+// /private/var. Read runs EvalSymlinks — which is the whole point of Target —
+// so it resolves further than the raw temp path, and every path equality
+// assertion in this file fails on a Mac while passing on Linux. That is a
+// defect in the test, not the product: resolving the last symlink in the chain
+// is exactly what Write must do to avoid replacing a dotfiles link with a
+// regular file. Resolving up front compares like with like.
+func tempDir(t *testing.T) string {
+	t.Helper()
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatalf("resolve temp dir: %v", err)
+	}
+	return dir
+}
+
 // load reads a corpus file into a File without touching the filesystem layout
 // the real Read walks, so that content cases and path cases stay separable.
 func load(t *testing.T, name string) *File {
@@ -265,7 +283,7 @@ func TestReadReportsAnUnlocatableFile(t *testing.T) {
 }
 
 func TestReadAbsentFileIsNotAnError(t *testing.T) {
-	path := filepath.Join(t.TempDir(), ".claude", "settings.json")
+	path := filepath.Join(tempDir(t), ".claude", "settings.json")
 	f, err := Read(path)
 	if err != nil {
 		t.Fatalf("Read: %v", err)
@@ -290,7 +308,7 @@ func TestReadAbsentFileIsNotAnError(t *testing.T) {
 // settings.json in a dotfiles repository, and their next `git status` would
 // show the file deleted.
 func TestWriteFollowsTheSymlink(t *testing.T) {
-	dir := t.TempDir()
+	dir := tempDir(t)
 	real := filepath.Join(dir, "real-settings.json")
 	link := filepath.Join(dir, "settings.json")
 	if err := os.WriteFile(real, []byte(`{"theme":"dark"}`), 0o600); err != nil {
@@ -332,7 +350,7 @@ func TestWriteFollowsTheSymlink(t *testing.T) {
 }
 
 func TestWritePreservesMode(t *testing.T) {
-	dir := t.TempDir()
+	dir := tempDir(t)
 	path := filepath.Join(dir, "settings.json")
 	if err := os.WriteFile(path, []byte(`{"theme":"dark"}`), 0o640); err != nil {
 		t.Fatal(err)
@@ -361,7 +379,7 @@ func TestWritePreservesMode(t *testing.T) {
 // directory entry, so a 0400 settings.json in a writable directory is still
 // replaceable. The corpus lists "read-only" as a case; this is what it does.
 func TestWriteOverAReadOnlyFile(t *testing.T) {
-	dir := t.TempDir()
+	dir := tempDir(t)
 	path := filepath.Join(dir, "settings.json")
 	if err := os.WriteFile(path, []byte(`{"theme":"dark"}`), 0o400); err != nil {
 		t.Fatal(err)
@@ -390,7 +408,7 @@ func TestWriteFailsOnAReadOnlyDirectory(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root ignores directory permissions")
 	}
-	dir := t.TempDir()
+	dir := tempDir(t)
 	sub := filepath.Join(dir, "locked")
 	if err := os.Mkdir(sub, 0o500); err != nil {
 		t.Fatal(err)
@@ -402,7 +420,7 @@ func TestWriteFailsOnAReadOnlyDirectory(t *testing.T) {
 }
 
 func TestBackupCopiesTheOriginal(t *testing.T) {
-	dir := t.TempDir()
+	dir := tempDir(t)
 	path := filepath.Join(dir, "settings.json")
 	original := []byte("{\n  \"theme\": \"dark\"\n}\n")
 	if err := os.WriteFile(path, original, 0o600); err != nil {

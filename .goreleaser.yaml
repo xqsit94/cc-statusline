@@ -57,7 +57,11 @@ archives:
       - LICENSE*
       - config/*.toml
 
-checksums:
+checksum:
+  # Singular. `checksums` parses as an unknown field and GoReleaser rejects the
+  # whole config, which is why `goreleaser check` runs in CI: the alternative is
+  # discovering it from a tag push, after the tag exists.
+  #
   # §10.1: install.sh fetches this alongside the archive and verifies before
   # unpacking. It is integrity, not authenticity — it ships from the same
   # release as the binary it attests to. Signing is deferred in §13, and the
