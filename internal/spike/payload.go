@@ -66,11 +66,13 @@ var outputTokenKeys = map[string]bool{"output_tokens": true}
 // occupancy returns how many tokens count toward used_percentage: the
 // input-side leaves of context_window.current_usage.
 //
-// context_window.total_input_tokens was measured to equal this sum in 27 of 27
-// payloads, so it is not a session-cumulative counter as the name suggests —
-// it is the current window's input tokens, and a single-field shortcut to the
-// same number. This function keeps summing the parts anyway, so a change in
-// the set of parts shows up as a disagreement rather than passing silently.
+// context_window.total_input_tokens was measured to equal this sum in 33 of 33
+// payloads: it is the current window's input tokens, not the session-cumulative
+// counter its name suggests, exactly as PRD §1.2 documents for 2.1.132+. An
+// earlier version of this comment asserted the opposite and was wrong.
+//
+// This function keeps summing the parts anyway, so a change in the set of parts
+// shows up as a disagreement in the report rather than passing silently.
 func (d doc) occupancy() (float64, []string, bool) {
 	v, ok := d.at("context_window.current_usage")
 	if !ok {

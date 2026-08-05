@@ -111,7 +111,7 @@ As of rev 4 the render path spawns no subprocesses at all.
 | Display element | Payload source | Absent when |
 |---|---|---|
 | Model name | `model.display_name` | never |
-| Context percent | `context_window.used_percentage` | may be `null` early in session |
+| Context percent | computed: `total_input_tokens / context_window_size × 100`, falling back to `context_window.used_percentage`. See §5.3. | both absent |
 | Context window size | `context_window.context_window_size` | never (200000 default) |
 | Session cost | `cost.total_cost_usd` | never |
 | Session duration | `cost.total_duration_ms` | never |
@@ -130,7 +130,8 @@ work tracked in §13: `cwd`, `workspace.added_dirs`, `workspace.repo.*`,
 `output_style.name`, `effort.level`, `thinking.enabled`, `fast_mode`, `vim.mode`,
 `agent.name`, `pr.*`, `exceeds_200k_tokens`, `context_window.current_usage.*`,
 `context_window.remaining_percentage`, `cost.total_api_duration_ms`, `prompt_id`,
-`transcript_path`, `session_id`, `rate_limits.*.resets_at`.
+`transcript_path`, `session_id`, `rate_limits.*.resets_at` (**unix epoch seconds
+as a number**, not an ISO-8601 string — measured, §3.1.1).
 
 > **`vim.mode` interaction.** If a `vim` segment is ever added, `init` must also
 > set `"hideVimModeIndicator": true`, or the mode renders twice.
@@ -151,7 +152,7 @@ was observed, with these exceptions and corrections:
 | Type correction | `rate_limits.*.resets_at` is a **number** (unix epoch seconds, e.g. `1785951600`), not an ISO-8601 string. Anything rendering "resets in 42m" must parse it as epoch. |
 | Shape confirmed | `workspace.repo` = `{host, name, owner}`. `context_window.current_usage` = `{input_tokens, cache_read_input_tokens, cache_creation_input_tokens, output_tokens}`. |
 | No drift | Zero undocumented keys. §3.1's inventory is complete as written. |
-| Name is misleading | `context_window.total_input_tokens` is **not** session-cumulative. It equalled the summed input-side `current_usage` fields in 33/33 payloads: it is the current window's input tokens. |
+| Confirmed, not corrected | `context_window.total_input_tokens` equalled the summed input-side `current_usage` fields in 33/33 payloads — it is the current window's input tokens, exactly as §1.2 already claimed for 2.1.132+. The document was right; the spike's first code comment asserted the opposite and was wrong. Recorded because the field's *name* invites that error. |
 
 **Q2 — what is `used_percentage` a percentage OF?** The **raw context window**.
 
@@ -176,17 +177,29 @@ denominator by tens of percent, not by one).
    The remaining measurement is the **compaction point itself**: run a session
    into a real compaction and record the `used_percentage` it fired at. That
    number, not 100, is the scale §5.4 must derive from. Tracked in §14.1 as C-4.
-2. **The percentage is integer-rounded by Claude Code.** §5.5's bar must not
-   inherit that step: compute fill from the exact ratio
-   `total_input_tokens / context_window_size`, and use `used_percentage` only
-   for the displayed number. Otherwise a 10-cell bar quantises twice.
+2. **The percentage is integer-rounded by Claude Code, and the spec never said
+   which value the bar uses.** Fixed in §5.3, which now defines `p_exact` and
+   `p_shown` once: `p_exact` drives fill and ramp, `p_shown` drives the number
+   and the bands. §5.5 and §5.7 defer to it rather than each naming a `pct` of
+   their own. The gain is small — at most one cell of fill, near a boundary —
+   but the ambiguity was not.
 3. **§5.3's context size marker must not be derived from the percentage.**
    `used_percentage × context_window_size` is a rounded product, not a token
    count. Read `context_window_size` directly.
-4. **§5.6's width reserve underestimates cost.** An observed session reached
-   `total_cost_usd = 107.43094200000006`. The cost segment is not always 5 cells
-   (`$0.85`), and the float carries representation noise that §5.7 must round
-   explicitly rather than hand to `%v`.
+4. **Cost reaches three digits.** An observed session hit
+   `total_cost_usd = 107.43094200000006`. §5.7's `FormatFloat(v, 'f', 2, 64)`
+   already absorbs the float noise correctly — no spec change needed — but every
+   reference state in §5.1 shows a 5-cell cost, so the fitting matrix never
+   exercises a wide one. Added as the `wide-cost.json` fixture in §9.1.
+
+> **Two claims retracted.** A first pass through these findings also asserted
+> that `total_input_tokens` being window-scoped corrected the document, and that
+> §5.6's width reserve underestimated cost. Neither survived checking: §1.2
+> already documented the former, and `width_reserve` is a global allowance for
+> Claude Code's own notifications, not a per-segment budget. Both are corrected
+> above. Measuring something is not the same as the document having been wrong
+> about it, and the difference is worth keeping straight in a document whose
+> whole purpose is to be trustworthy.
 
 **What M0 did not establish.** One machine, one model (`claude-opus-5[1m]`,
 1,000,000-token window), one Claude Code version (2.1.222), one subscriber
@@ -482,9 +495,31 @@ concern, not a segment-level one.
 leading spaces belong to the placeholders, which is what makes `42%` and
 `92% ⚠ 1M` both correct from one format string.
 
-**Null percent renders as zero.** A `null` `used_percentage` is treated as `0` for
-both the bar and the number. The segment is empty only when `context_window` is
-absent entirely. This is what makes the startup state render `░░░░░░░░░░ 0%`.
+**The percent has one definition, used everywhere.** M0 measured that Claude
+Code's `used_percentage` is `round(total_input_tokens / context_window_size ×
+100)` — an integer. We have the operands, so we compute the exact value and let
+Claude Code's rounding go:
+
+```
+p_exact = 100 × total_input_tokens / context_window_size    (both present, size > 0)
+        = used_percentage                                   (fallback)
+        = 0                                                 (neither present)
+p_shown = clamp(round(p_exact), 0, 100)
+```
+
+`p_exact` drives the bar fill and the gradient ramp (§5.5). `p_shown` is the
+number on screen and the value the bands compare against (§5.4). Bar fill from
+`p_exact` differs from fill computed off the rounded integer by at most one cell,
+and only near a cell boundary — a small gain, taken because the better operands
+cost nothing. The ramp benefits more, being continuous.
+
+Note `total_input_tokens`, not the summed `current_usage` fields: M0 measured
+them equal in 33/33 payloads, and one field cannot disagree with itself.
+
+**Null percent renders as zero.** With both operands absent and no
+`used_percentage`, `p_exact` is `0` for both the bar and the number. The segment
+is empty only when `context_window` is absent entirely. This is what makes the
+startup state render `░░░░░░░░░░ 0%`.
 
 **The context size marker** is governed by `[context] show_size`:
 `"non_default"` (default) renders only when `context_window_size != 200000`, and
@@ -503,20 +538,23 @@ empty, which is what the clean startup mockup depicts.
 | warning | `thresholds.warning ≤ p < thresholds.danger` | `warning` |
 | danger | `thresholds.danger ≤ p ≤ 100` | `danger` |
 
-Defaults `warning = 70`, `danger = 85`, compared against the **rounded integer**
-percent so the displayed number and its color never disagree.
+Defaults `warning = 70`, `danger = 85`, compared against `p_shown` (§5.3) — the
+**rounded integer** percent — so the displayed number and its color never
+disagree. `p_exact` drives only the bar's fill and ramp.
 
-> **Provisional pending §3.1.1.** If `used_percentage` measures the raw window
-> rather than the window net of the autocompact threshold, these defaults are
-> calibrated against the wrong scale and must be re-derived from a measured
-> compaction point.
+> **Still provisional, and now for a known reason.** M0 answered the question
+> §3.1.1 posed: the percent measures the **raw** context window, so it does not
+> account for the autocompact threshold. That means 100 is not the ceiling that
+> matters, and `danger = 85` may sit *after* the point compaction fires. These
+> defaults cannot be locked until the compaction point is measured — C-4, §14.1.
 
 Rate limits use `thresholds.ratelimit_warn = 80` and have two states only:
 below it `colors.ratelimit`, at or above `colors.warning`.
 
 ### 5.5 The bar
 
-**Fill.** `filled = clamp(int(math.Round(pct × width / 100)), 0, width)`.
+**Fill.** `filled = clamp(int(math.Round(p_exact × width / 100)), 0, width)`,
+with `p_exact` as defined in §5.3 — never the rounded integer.
 Verified: 42 → 4, 75 → 8, 92 → 9, 0 → 0.
 
 **Ramp.** `gradient_stops` is an ordered list spaced **evenly** across `[0,1]`.
@@ -527,11 +565,11 @@ color space cannot be left to a library default.
 **Fill-relative coloring**, when truecolor is available and `gradient = true`:
 
 ```
-color(i) = ramp( (pct/100) × (i+1)/filled )   for i ∈ [0, filled)
+color(i) = ramp( (p_exact/100) × (i+1)/filled )   for i ∈ [0, filled)
 ```
 
 `filled == 0` lights no cells and never evaluates the ramp. `filled == 1`
-(including `bar.width == 1`) gives that cell `ramp(pct/100)`. The visible ramp
+(including `bar.width == 1`) gives that cell `ramp(p_exact/100)`. The visible ramp
 compresses and expands with the fill level: green through yellow at 42%, the full
 green through red at 92%, which is what the reference mockups depict.
 
@@ -599,7 +637,8 @@ line. The bar no longer competes for a drop slot at all: it lives inside
 
 ### 5.7 Formatting rules
 
-**Percent.** `int(math.Round(v))`, half away from zero, clamped `[0,100]`.
+**Percent.** `p_shown = int(math.Round(p_exact))`, half away from zero, clamped
+`[0,100]`. `p_exact` is defined once in §5.3; no other section computes it.
 
 **Zero window.** `context_window_size` of `0` or absent renders an all-empty bar
 and `0%`. Never divide by it.
@@ -956,7 +995,8 @@ Without this, goldens would depend on the CI checkout's real branch.
 | `no-git.json` / `detached.json` / `long-branch.json` | branch segment states |
 | `long-model.json` | forces truncate and clip at width 40 |
 | `500k-context.json` / `1m-context.json` | size label rules |
-| `fractional-pct.json` | `69.6` → 70 → warning band |
+| `fractional-pct.json` | tokens giving `p_exact = 69.6` → `p_shown = 70` → warning band, while fill rounds to 7 cells. The one fixture where §5.3's two percents diverge; built from tokens, since M0 measured `used_percentage` is never fractional. |
+| `wide-cost.json` | `total_cost_usd = 107.43094200000006` — an observed value. Three digits widen line 1 past the reference states, and `FormatFloat(v,'f',2,64)` must absorb the float noise. |
 | `sub-minute.json` / `over-day.json` | duration boundaries |
 
 `gitinfo` is tested separately against synthetic `.git` trees in `t.TempDir()`:
@@ -1207,17 +1247,22 @@ informed by use rather than a bet placed before it.
 Two adversarial rounds (7/10, then 8/10), one engineering review, one outside
 voice. Rev 4 folds all of it. Rev 5 folds M0's measurements.
 
-**M0 (rev 5)** replaced §3.1.1's questions with answers, and in doing so
-corrected four things the document had asserted without evidence: `resets_at` is
-an epoch number rather than a string, `total_input_tokens` is window-scoped
-rather than session-cumulative, `used_percentage` is integer-rounded so the bar
-must be driven from the exact ratio instead, and the cost segment can reach three
-digits. The headline finding is that `used_percentage` measures the raw window,
-which leaves §5.4's thresholds miscalibrated until the compaction point is
-measured (C-4). The analysis itself had to be rewritten mid-flight: an
-implied-denominator method that assumed an exact percentage read wild
-inconsistency into data that was in fact perfectly regular, because the value is
-rounded. Rounded metrics constrain a range, not a point.
+**M0 (rev 5)** replaced §3.1.1's questions with answers. The headline finding is
+that `used_percentage` measures the **raw** window, which leaves §5.4's
+thresholds miscalibrated until the compaction point is measured (C-4).
+
+Two document changes followed: `resets_at` is an epoch number rather than a
+string (§3.1), and the percent now has a single definition in §5.3 — `p_exact`
+for fill and ramp, `p_shown` for the number and the bands — because §5.5 and
+§5.7 each said `pct` without either saying where it came from. Two further
+"corrections" were claimed and then withdrawn on checking; §3.1.1 records which
+and why.
+
+The analysis itself had to be rewritten mid-flight. An implied-denominator
+method that assumed an exact percentage read wild inconsistency into data that
+was in fact perfectly regular, because the value is rounded. Rounded metrics
+constrain a range, not a point — and a method that reports noise as a finding is
+worse than no method, because it looks like an answer.
 
 **Rounds 1–2** fixed: the forced-TTY color trap (§6.5), the unsatisfiable bar-fill
 triple, cross-line drop ordering, non-hermetic git fixtures, the debounce
@@ -1262,7 +1307,7 @@ information, and the absolute-path install failure.
 | The wizard is not actually unique | §2.1 restates the positioning honestly |
 
 **Deliberately rejected.** Replacing the fill-relative gradient with a solid
-`ramp(pct/100)` — simpler and edge-case-free, but it discards the multi-hue bar
+`ramp(p_exact/100)` — simpler and edge-case-free, but it discards the multi-hue bar
 the reference mockups specify. §5.5 records the trade.
 
 ### 14.1 Reviewer Concerns (open)
@@ -1276,7 +1321,7 @@ installer; if they handle it, delete the refusal path.
 lit cell stays near the ramp start at every level, so much of the bar's ink does
 not move as the session fills. Accepted to match the mockups. Settle it at the M4
 visual gate: if it reads as "same rainbow, different length," switch to solid
-`ramp(pct/100)`.
+`ramp(p_exact/100)`.
 
 **C-3 — two lines may be the wrong default (§12 Q5).** Not resolved. Revisit at
 M6 with real feedback.
