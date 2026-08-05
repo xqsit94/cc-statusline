@@ -68,7 +68,15 @@ func Render(args []string, env map[string]string, stdin io.Reader, stdout io.Wri
 	// Loaded once, here, and handed down. Loading inside renderLines instead
 	// would read the config file twice on the hot path — once for the line and
 	// once for the fallback's glyph — for no gain.
-	cfg, _ := config.Load(env)
+	cfg, notes := config.Load(env)
+
+	// §7.1: the notes have nowhere to go on a status line, so they go to a file
+	// and `doctor` reads them back. This is the only thing on the render path
+	// that touches the filesystem for a reason other than the payload, and it
+	// does nothing at all in the overwhelmingly common case of a config with no
+	// problems in it.
+	recordConfigNotes(notes)
+
 	caps := style.Detect(env, cfg)
 	marker = style.GlyphsFor(caps.Icons, cfg).ModelMarker
 

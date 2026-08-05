@@ -1,0 +1,5 @@
+{
+  // which model to show
+  "theme": "dark",
+  "env": {"FOO": "1"}
+}

@@ -1,0 +1,99 @@
+# GoReleaser — PRD §10.1's distribution channels.
+#
+# The two properties that matter here are the ones §1 and §8.1 rest on: a
+# single static binary with no runtime dependencies, and a build whose
+# `version` output identifies exactly what someone is running when they file a
+# bug.
+version: 2
+
+project_name: cc-statusline
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: cc-statusline
+    main: .
+    binary: cc-statusline
+    env:
+      # §4.1: no cgo. It is what makes the binary static, what makes it work on
+      # a musl distribution, and what stops the git subsystem §13 deferred from
+      # ever quietly coming back through a C library.
+      - CGO_ENABLED=0
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+    ldflags:
+      # -s -w drop the symbol and DWARF tables. Nothing here needs a stack
+      # trace in the field: §3.3 recovers panics and prints a fallback line, so
+      # the binary is smaller for no diagnostic loss.
+      #
+      # The three -X targets are the unexported vars in cmd/version.go. When
+      # they are empty — a plain `go build`, or `go install @latest` — Version
+      # falls back to the VCS stamps the toolchain embeds, so `version` is
+      # never reduced to "none".
+      - -s -w
+      - -X github.com/xqsit94/cc-statusline/cmd.version={{.Version}}
+      - -X github.com/xqsit94/cc-statusline/cmd.commit={{.ShortCommit}}
+      - -X github.com/xqsit94/cc-statusline/cmd.date={{.Date}}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: default
+    formats: [tar.gz]
+    # Uname-style names, because install.sh derives them from `uname -s` and
+    # `uname -m` and any other scheme means a mapping table in shell.
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+    files:
+      - README.md
+      - LICENSE*
+      - config/*.toml
+
+checksums:
+  # §10.1: install.sh fetches this alongside the archive and verifies before
+  # unpacking. It is integrity, not authenticity — it ships from the same
+  # release as the binary it attests to. Signing is deferred in §13, and the
+  # README must not describe this as a security guarantee it is not.
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+release:
+  draft: false
+  prerelease: auto
+  footer: |
+    ## Install
+
+    ```sh
+    curl -fsSL https://raw.githubusercontent.com/xqsit94/cc-statusline/main/install.sh | sh
+    cc-statusline init
+    ```
+
+    Or, with a Go toolchain:
+
+    ```sh
+    go install github.com/xqsit94/cc-statusline@{{ .Tag }}
+    cc-statusline init
+    ```
+
+    Verify a download by hand with `checksums.txt`. Note that this is an
+    integrity check, not an authenticity one — see the README.

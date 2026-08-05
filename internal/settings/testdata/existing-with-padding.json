@@ -1,0 +1,9 @@
+{
+  "theme": "dark",
+  "statusLine": {
+    "type": "command",
+    "command": "/opt/cc/cc-statusline render",
+    "refreshInterval": 60,
+    "padding": 0
+  }
+}

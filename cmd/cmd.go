@@ -29,6 +29,19 @@ const Usage = `cc-statusline — a Claude Code status line
         Print a column ruler instead of a status line. Install it as the
         statusLine command to measure what width_reserve should be (C-7).
 
+  cc-statusline init [--preset NAME] [--icons SET] [--force] [--dry-run]
+        Write ~/.config/cc-statusline/config.toml and point Claude Code's
+        statusLine at this binary. Idempotent; backs up settings.json
+        before touching it; declines rather than edit a file that has
+        comments in it.
+
+  cc-statusline uninstall [--force]
+        Remove the statusLine key and nothing else. Leaves the config file.
+
+  cc-statusline doctor [--json]
+        What this build detected, what it resolved, and what went wrong
+        last time. The first thing to run when the line looks wrong.
+
   cc-statusline version
         Version, commit, and build date.
 
@@ -37,7 +50,7 @@ const Usage = `cc-statusline — a Claude Code status line
         M0 contract verification. Temporary; removed when PRD §14.1's
         C-4 and C-5 close.
 
-Not yet implemented: config (M7), init / uninstall / doctor (M5).
+Not yet implemented: config (M7).
 `
 
 // Main dispatches a subcommand and returns the process exit code.
@@ -60,6 +73,16 @@ func Main(args []string, env map[string]string) int {
 		return Capture(args[1:], env, os.Stdin, os.Stdout)
 	case "preview":
 		return Preview(args[1:], env, os.Stdin, os.Stdout)
+	case "init":
+		return Init(args[1:], env, os.Stdout, os.Stderr)
+	case "uninstall":
+		return Uninstall(args[1:], env, os.Stdout, os.Stderr)
+	case "doctor":
+		return Doctor(args[1:], env, os.Stdout, os.Stderr)
+	case "config":
+		// Named in the usage text and in §4.1, so it gets a real answer rather
+		// than "unknown subcommand" — which would read as a typo in the name.
+		return notImplemented(os.Stderr, "config", "M7")
 	case "version":
 		return Version(os.Stdout)
 	case "spike":

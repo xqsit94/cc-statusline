@@ -21,9 +21,11 @@ and `/review` can see what was deferred without reading a 1,300-line spec.
 
 ## Open concerns to settle during implementation
 
-- [ ] **C-1: does sjson handle `//` comments?** — PRD §14.1, task T19.
-      Ten-line test. Write it before building the refusal path in §10.2 step 5;
-      if sjson handles them, delete that path.
+- [x] **C-1: does sjson handle `//` comments?** — CLOSED at M5. It does, and the
+      refusal path stays anyway: gjson finds keys *inside* comments, so a
+      commented-out `statusLine` would be rewritten in place and `init` would
+      report success forever. §10.2's step order was inverted as a result.
+      See PRD §14.1 and `internal/settings`.
 - [ ] **C-2: is the fill-relative gradient legible?** — PRD §14.1, §5.5.
       Settle at the M4 visual gate. If it reads as "same rainbow, different
       length," switch to solid `ramp(pct/100)`.
@@ -64,6 +66,24 @@ checklist. Outstanding:
 `preview` renders the same payloads the goldens assert against, so a signature
 on its output is a signature on the shipped bytes — `TestPreviewShowsWhatThe`
 `GoldensAssert` is what keeps that true.
+
+## M6 — what blocks the tag
+
+`docs/M6-release.md` is the checklist and the reasoning. The four blockers:
+
+- [ ] **No `LICENSE` file.** Without one, "all rights reserved" applies and
+      nobody may legally use what `install.sh` installs. Your call, five minutes.
+- [ ] **No git remote.** `git remote -v` is empty — nowhere to push a tag, and
+      no Releases page for `install.sh` to fetch from.
+- [ ] **The M4 visual gate is unrun.** Two of its findings (C-2, C-6) can change
+      what ships, and both are much cheaper before a tag than after one.
+- [ ] **C-4 and C-5 unmeasured**, so §5.4's thresholds are still guesses. This is
+      the week of real use §11 asked for; §12 Q5 (one line or two) resolves in
+      the same week.
+
+Also unset: the repository has no git identity, so every commit so far needed
+`git -c user.name=… -c user.email=…`. Worth configuring before a tag carries
+your name.
 
 ## Unanswered strategic question
 

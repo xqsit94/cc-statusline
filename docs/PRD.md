@@ -321,7 +321,8 @@ or the exit code.
 
 ### 4.2 Package layout
 
-Six internal packages. Packages that always change together are one package.
+Seven internal packages — five at rev 4, plus `refstate` at M4 and `settings` at
+M5. Packages that always change together are one package.
 
 ```
 cc-statusline/
@@ -345,6 +346,9 @@ cc-statusline/
 │   │   ├── join.go    fit.go    width.go   registry.go
 │   ├── gitinfo/
 │   │   └── discover.go         # upward walk, gitdir indirection, HEAD parse
+│   ├── settings/               # the settings.json editor — see below
+│   │   ├── settings.go
+│   │   └── testdata/*.json     # the §9.3 corpus
 │   └── refstate/               # §5.1's payloads, embedded — see below
 │       ├── refstate.go
 │       └── payloads/*.json     # + *.git.json sidecars, see §9.1
@@ -352,7 +356,6 @@ cc-statusline/
 │   ├── config.example.toml
 │   └── presets/{default,minimal}.toml
 ├── testdata/
-│   ├── settings/*.json         # settings.json corpus, see §9.3
 │   └── golden/{plain,styled}/
 ├── docs/PRD.md
 ├── README.md
@@ -374,11 +377,25 @@ it four — the wizard falls back to a bundled fixture when the cache is empty. 
 leaves no repository on disk for them to read from, so the bytes are embedded.
 The alternative was four copies of the payload the gate is supposed to validate.
 
+**`settings` is a package rather than code in `cmd/`, added at M5.** Editing
+someone else's configuration file is the riskiest thing this program does, and
+the rules that make it safe — refuse a file that is not plain JSON, resolve
+symlinks to their target, preserve mode, back up before writing, temp-and-rename,
+restore the trailing newline, insert at the file's own indentation — are the
+same rules for `init` and `uninstall` and would have been duplicated across two
+command files. §9.3's corpus tests the rules directly rather than through a
+command, which is why the corpus lives beside them.
+
 > The tree above still lists `internal/line` as one file per segment and
 > `internal/config` with `env.go` / `paths.go`. The implementation put the eight
 > segments in `segments.go` and the resolution in `load.go`. That drift is
 > cosmetic and is noted rather than resolved, because the file names are not
 > what §4.2 is asserting — the package boundaries are.
+>
+> The §9.3 settings corpus moved from a repository-root `testdata/` into
+> `internal/settings/testdata/`, because Go only makes a `testdata` directory
+> available to the package it sits beside. `internal/line`'s goldens stay where
+> §4.2 puts them for the same reason, in reverse.
 
 ### 4.3 The Segment interface
 
@@ -1006,9 +1023,26 @@ would drift apart the first time a default moved.
 **Invalid config behaves identically everywhere: silently default.** `render`,
 `config`, `init`, and `doctor` all fall back to the embedded default for any
 invalid key, and all record what was defaulted. `doctor` reports it and `render`
-appends it to `last-error.txt`. Divergent behavior — erroring in one command and
+writes it to `last-error.txt`. Divergent behavior — erroring in one command and
 defaulting in another — would let the wizard preview and the real status line
 disagree, which breaks §10.3's central promise.
+
+> **Corrected at M5: `render` rewrites that file, it does not append to it.**
+> `render` runs on every refresh — every sixty seconds, in every session, for as
+> long as Claude Code is open — and a config with one typo'd key produces the
+> same note every time. Appending would write about fourteen hundred identical
+> lines a day to diagnose a single misspelling. The file holds the current set
+> and is deleted once the config loads clean, so a corrected typo stops being
+> reported instead of accumulating into a history of solved problems.
+>
+> The write is best-effort in the strictest sense: every error from it is
+> discarded, because §3.3's contract outranks any diagnostic. A file where the
+> cache directory should be must not cost the user their status line.
+
+**`doctor` exits 1 only for a config that could not be parsed at all.** An
+unknown key or an out-of-range value is repaired and reported at exit 0 — those
+are states the user can be told about and fix. A file that is not TOML is the one
+case where what `doctor` reports and what `render` does could genuinely diverge.
 
 ### 7.2 Schema
 
@@ -1353,17 +1387,40 @@ time.
    > resolve, exit non-zero, and blank the status line **with no error message**.
 
    `padding` is not written; if present it is recorded into `[general] padding`.
-4. Read `~/.claude/settings.json`. If `statusLine` already equals the desired
-   value, skip to step 7. This is what makes `init` idempotent.
-5. **Comment check.** If the file contains `//` or `/* */` outside a string
-   literal, print the exact JSON block to add manually and exit 0 **without
-   writing**. Neither `gjson` nor `sjson` understands comments; their scanners
-   walk raw bytes and would mis-locate the edit. Refusing is the only
-   non-destructive option. **Verify empirically before M6.**
-6. Back up to `settings.json.bak-<timestamp>`, then
-   `sjson.SetBytes(raw, "statusLine", desired)`, validated first with `gjson`.
-   Preserve file mode, resolve symlinks, write via temp+rename in the same
-   directory.
+4. **Plain-JSON check.** If `gjson.ValidBytes` rejects the file — comments, a
+   trailing comma, anything JSON5 — print the exact block to add manually and
+   exit 0 **without writing**. Refusing is the only non-destructive option.
+
+   > **This step and the next were originally the other way round, and the order
+   > was the bug.** Checking equality first means reading `statusLine` out of a
+   > file that may not be plain JSON, and gjson finds keys inside comments (C-1).
+   > A commented-out `statusLine` matching what we would write would be read as
+   > an existing installation, and `init` would report success forever without
+   > ever reaching this refusal. Corrected at M5; `TestInitDeclinesRatherThan`
+   > `WriteIntoAComment` is what holds it.
+
+5. If `statusLine` already equals the desired value, skip to step 7. Equality is
+   compared on the decoded value, not the bytes: whitespace and key order in the
+   user's file are not disagreements, and a byte comparison would make `init`
+   non-idempotent the moment someone reformatted their settings.json. This is
+   what §9.3's "run twice, no second backup" rests on.
+6. Back up to `settings.json.bak-<timestamp>`, then write the key. Preserve file
+   mode, resolve symlinks, write via temp+rename in the same directory.
+
+   > **Adding the key is not `sjson`'s job; replacing it is.** sjson replaces an
+   > existing value in place and preserves the layout around it. Appending a new
+   > one, it writes `,"statusLine":{…}` immediately before the closing brace with
+   > no indentation, so a hand-formatted settings.json comes back with a comma at
+   > column zero and a doubled brace on the last line. That is valid JSON that
+   > reads as damage, in a file people open by hand. M5 does the insert at the
+   > indentation the file already uses and keeps sjson as the fallback for any
+   > shape it does not recognise. Everything else in the document is still
+   > untouched — §9.3's 17-digit integer is the assertion that keeps it so.
+   >
+   > sjson also drops trailing whitespace, so the file's final newline is
+   > restored explicitly. One byte, and it is the byte that makes `git diff`
+   > print "\ No newline at end of file" against a file we only added a key to.
+
 7. Print a rendered preview and the `uninstall` command.
 
 > **Why `refreshInterval: 60`.** Without a timer the duration segment freezes
@@ -1417,8 +1474,8 @@ is driven by config concepts), and the README moved to M6 with the first release
 | ~~**M2 Render core**~~ **DONE** | Segment interface, 8 segments, `gitinfo` HEAD reader, plain joining, `Capabilities` struct, **§6.5 forced-TTY renderer** | ✅ All four §5.1 states byte-identical; colour survives a pipe at every profile |
 | ~~**M3 Config + polish**~~ **DONE** | TOML schema, XDG resolution, env overlay, validation, 2 presets, gradient, glyph sets, powerline, go-runewidth, drop→truncate→clip | ✅ All four reference states match plain goldens across 3 icon sets × 2 separator styles × 4 widths + a CJK row; no line exceeds `available` at any width from 10 to 200 |
 | **M4 Visual gate** — **harness DONE, human pass outstanding** | `cc-statusline preview` + `--probe`, `internal/refstate`, `docs/M4-visual-gate.md`. §9.4's terminal and locale axes corrected. | Harness: ✅ preview and render produce identical bytes from the same fixture; the width rule is ASCII-only at every length. Human: screenshots in `docs/gate/`, C-2 / C-6 / C-7 and §12 Q1/Q2 resolved with reasons |
-| **M5 Install** | `init`, `uninstall`, `doctor`, `version`, sjson + comment refusal, GoReleaser, release workflow, `install.sh` + checksums, **README** | Clean machine, no Go, installs via curl and passes `env -i` |
-| **M6 Release v0.1** | Tag, publish, use it yourself for a week | One non-you user has it installed |
+| ~~**M5 Install**~~ **DONE** | `init`, `uninstall`, `doctor`, `internal/settings`, the settings.json corpus, GoReleaser, CI + release workflow, `install.sh` + checksums, `Makefile`, **README**. C-1 closed; §10.2's step order and §7.1's last-error behaviour corrected. | ✅ install/uninstall round-trips byte-identical on every corpus file; a commented settings.json is declined rather than silently no-op'd; `init` twice makes no second backup; 17-digit integers and key order survive |
+| **M6 Release v0.1** — **prepared, blocked on four things** | Tag, publish, use it yourself for a week. `CHANGELOG.md` and `docs/M6-release.md` written. | Blocked: no `LICENSE`, no git remote, the M4 gate unrun, C-4/C-5 unmeasured. Then: one non-you user has it installed |
 | **M7 Wizard** | Bubble Tea `config`, live preview, capability toggles, width slider | Full configuration without editing TOML |
 | **M8 Hardening** | Full golden tiers, escape table, install integration corpus, fuzz | All §9.3 criteria pass |
 
@@ -1469,7 +1526,36 @@ informed by use rather than a bet placed before it.
 
 Two adversarial rounds (7/10, then 8/10), one engineering review, one outside
 voice. Rev 4 folds all of it. Rev 5 folds M0's measurements; rev 6, M2's; rev 7,
-M3's; rev 8, M4's.
+M3's; rev 8, M4's; rev 9, M5's.
+
+**M5 (rev 9)** settled C-1 and found three things this document had specified
+wrongly. All three are the same shape: a rule that is right about its conclusion
+and wrong about its reason, where the wrong reason led to the wrong mechanism.
+
+1. **§10.2's step order inverted the refusal.** Comparing the existing
+   `statusLine` before checking the file is plain JSON means reading a value that
+   may come out of a comment. gjson does read them, so a commented-out
+   `statusLine` matching ours would have been taken as an existing installation
+   and `init` would have reported success forever, writing nothing. The check
+   that exists to prevent silent corruption was placed where the silent
+   corruption could route around it.
+
+2. **C-1's premise was false and its conclusion survived anyway.** sjson does not
+   mis-locate the edit on a commented file. What it does is worse and narrower —
+   see §14.1. The refusal stays; the instrument changed from a hand-written
+   comment scanner to `gjson.ValidBytes`, which is both simpler and strictly more
+   correct on §9.3's `//`-inside-a-string case.
+
+3. **§7.1's `last-error.txt` would have grown without bound.** "Append" is the
+   natural verb for a log, and `render` is not a program that runs once. A single
+   typo'd config key would have written ~1,400 identical lines a day.
+
+One thing this document did not specify at all, found by running the result:
+sjson appends a new key with no indentation and drops the file's trailing
+newline, so `init` handed back a settings.json that looked damaged. §10.2 step 6
+now says how the key is placed. The install is the first thing a stranger sees,
+and a file that reads as corrupted is not a good introduction to a tool arguing
+that it will not surprise you.
 
 **M0 (rev 5)** replaced §3.1.1's questions with answers. The headline finding is
 that `used_percentage` measures the **raw** window, which leaves §5.4's
@@ -1614,10 +1700,35 @@ the reference mockups specify. §5.5 records the trade.
 
 ### 14.1 Reviewer Concerns (open)
 
-**C-1 — sjson comment handling is unverified (§10.2 step 5, M5).** The claim that
-neither `gjson` nor `sjson` tolerates comments is consistent with how their
-scanners work but has not been tested. Write the ten-line test before writing the
-installer; if they handle it, delete the refusal path.
+**C-1 — sjson comment handling — CLOSED at M5, and the reasoning was wrong.**
+The prediction was that neither scanner tolerates comments and that an edit would
+therefore be mis-located. Measured: `sjson.SetBytes` handles an ordinary
+commented file correctly — it appends the key before the closing brace and every
+comment survives untouched.
+
+The real failure is narrower and much worse. `gjson`'s scanner does not know a
+comment is not data, so a file containing
+
+```jsonc
+// "statusLine": {"type": "command", "command": "disabled-on-purpose"},
+```
+
+reports `statusLine` as **present**, and `sjson` rewrites the value *inside the
+comment*. The user gets a commented-out status line naming this binary, no live
+key, and an `init` that reports success on that run and on every later one,
+because the idempotence check reads back what it wrote into the comment.
+Trailing commas fail outright: `{"a":1,}` becomes `{"a":1,,"statusLine":…}`.
+
+**The refusal path stays, and it moved.** See the §10.2 correction below: the
+plain-JSON check has to precede the idempotence check, or the commented case
+never reaches the refusal at all. The gate is `gjson.ValidBytes` rather than a
+hand-written comment scanner — the more correct instrument, not a shortcut,
+because §9.3 requires `//` inside a string literal not to be treated as a
+comment and a scanner of ours would have to track string state, escapes, and
+escaped backslashes to get that right. It also catches the trailing comma this
+document never thought to mention. `TestC1TheCommentRefusalIsNecessary` pins the
+finding, and `t.Skip`s with a note if a future gjson stops reading comments as
+data, so the decision can be revisited on evidence rather than memory.
 
 **C-2 — the fill-relative gradient's information density (§5.5).** The leftmost
 lit cell stays near the ramp start at every level, so much of the bar's ink does

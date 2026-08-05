@@ -90,6 +90,8 @@ func cacheDir() (string, error) {
 	return filepath.Join(home, ".cache", "cc-statusline"), nil
 }
 
+func removeQuietly(path string) { _ = os.Remove(path) }
+
 func writeQuietly(path string, b []byte) {
 	if dir := filepath.Dir(path); dir != "" {
 		if err := os.MkdirAll(dir, 0o755); err != nil {

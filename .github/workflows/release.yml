@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # GoReleaser derives the version and the changelog from tags, and a
+          # shallow clone has neither.
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # The `before` hooks in .goreleaser.yaml run the tests, so a tag pushed
+      # against a broken tree fails here rather than publishing.
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # A published release whose install.sh path does not work is the failure
+      # mode that matters most: it is the channel §10.1 puts first, and it is
+      # the one nobody exercises until a stranger tries it.
+      - name: install.sh against the release just published
+        run: |
+          set -eu
+          VERSION="${GITHUB_REF_NAME}" PREFIX="$RUNNER_TEMP/bin" sh ./install.sh
+          "$RUNNER_TEMP/bin/cc-statusline" version
+          echo '{"model":{"display_name":"Opus"}}' | "$RUNNER_TEMP/bin/cc-statusline" render
