@@ -212,6 +212,10 @@ The design document is [`docs/PRD.md`](docs/PRD.md). It is unusually long for a
 status line and unusually honest about what has been measured versus assumed —
 `§14 Review history` records what each milestone proved wrong.
 
+## License
+
+MIT — see [`LICENSE`](LICENSE).
+
 ## Prior art
 
 [`felipeelias/claude-statusline`](https://github.com/felipeelias/claude-statusline)

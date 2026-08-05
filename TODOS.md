@@ -71,8 +71,9 @@ on its output is a signature on the shipped bytes — `TestPreviewShowsWhatThe`
 
 `docs/M6-release.md` is the checklist and the reasoning. The four blockers:
 
-- [ ] **No `LICENSE` file.** Without one, "all rights reserved" applies and
-      nobody may legally use what `install.sh` installs. Your call, five minutes.
+- [x] **`LICENSE`** — MIT, copyright `xqsit94`. Change the holder to your legal
+      name before the tag if you want it there; afterwards it is on record in
+      every copy anyone has.
 - [ ] **No git remote.** `git remote -v` is empty — nowhere to push a tag, and
       no Releases page for `install.sh` to fetch from.
 - [ ] **The M4 visual gate is unrun.** Two of its findings (C-2, C-6) can change

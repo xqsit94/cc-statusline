@@ -23,7 +23,7 @@ is still blocking.
 - Distribution: `.goreleaser.yaml`, a release workflow that installs its own
   release through `install.sh` before finishing, `install.sh` with SHA-256
   verification against a pinned tag, a `Makefile`, and CI on Linux and macOS.
-- `README.md`.
+- `README.md` and `LICENSE` (MIT).
 
 ### Fixed / corrected from the design
 
