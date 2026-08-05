@@ -27,6 +27,7 @@ and `/review` can see what was deferred without reading a 1,300-line spec.
 - [ ] **C-2: is the fill-relative gradient legible?** — PRD §14.1, §5.5.
       Settle at the M4 visual gate. If it reads as "same rainbow, different
       length," switch to solid `ramp(pct/100)`.
+      Run: `docs/M4-visual-gate.md` §3.3.
 - [ ] **C-3: should the default be one line, not two?** — PRD §12 Q5, §14.1.
       Two lines costs two terminal rows on every prompt forever. Revisit at M6
       with real feedback.
@@ -42,10 +43,27 @@ and `/review` can see what was deferred without reading a 1,300-line spec.
       `CC_STATUSLINE_POWERLINE=1` swaps the separator glyph for the arrow and
       nothing else, because §7.2's `[colors]` has no per-segment background.
       Decide at M4 whether the filled variant earns a sixteen-colour palette.
+      Run: `docs/M4-visual-gate.md` §5.
 - [ ] **C-7: is `width_reserve = 12` the right number?** — PRD §14.1, §5.6.
       Never measured, and now load-bearing: it is the two cells that stop §5.1's
-      danger state from fitting at 80 columns. Measure Claude Code's own
-      notification width at M4 and set the default from that.
+      danger state from fitting at 80 columns.
+      Run: `docs/M4-visual-gate.md` §4 — install `preview --probe` as the
+      statusLine command and read the number off Claude Code's own rendering.
+      Needs a settings.json swap, so it is yours to run, not mine.
+
+## M4 — the human half
+
+The harness landed; the looking has not. `docs/M4-visual-gate.md` is the
+checklist. Outstanding:
+
+- [ ] ghostty and alacritty, at 40 / 120 / 200, across the four capability sets
+- [ ] the C-7 probe, with and without a notification on screen
+- [ ] iTerm2 and Terminal.app — **needs a Mac**; due before v0.1 is tagged (M6)
+- [ ] screenshots into `docs/gate/`, findings table filled in, §14 updated
+
+`preview` renders the same payloads the goldens assert against, so a signature
+on its output is a signature on the shipped bytes — `TestPreviewShowsWhatThe`
+`GoldensAssert` is what keeps that true.
 
 ## Unanswered strategic question
 

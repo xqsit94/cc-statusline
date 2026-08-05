@@ -30,6 +30,12 @@ func available(ctx Context) int {
 	return max(20, cols-2*ctx.Config.General.Padding-ctx.Config.General.WidthReserve)
 }
 
+// Available exports the budget for `cc-statusline preview`, which prints it
+// beside the rendered lines so that §9.4's gate shows the number a line was
+// fitted against rather than only the result. M7's width slider needs the same
+// thing. Nothing in the render path calls it.
+func Available(ctx Context) int { return available(ctx) }
+
 // fit renders one line's segments into a row that occupies at most avail cells.
 func fit(ctx Context, items []fitted, avail int) Rendered {
 	sep := separator(ctx)

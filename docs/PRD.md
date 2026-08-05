@@ -287,6 +287,8 @@ One static binary, no cgo, no runtime dependencies, **no subprocesses**.
 | `cc-statusline init` | Install: write config, patch `settings.json` | 0; 1 on failure |
 | `cc-statusline uninstall` | Remove the `statusLine` key surgically | 0; 1 on failure |
 | `cc-statusline capture [file]` | Tee stdin + environment to a file, then render | 0 always |
+| `cc-statusline preview [--matrix]` | §9.4's gate harness: reference states with a width rule, at capability sets this terminal lacks | 0; 2 on a bad flag |
+| `cc-statusline preview --probe` | A column ruler instead of a status line, for measuring C-7 | 0 always |
 | `cc-statusline doctor [--json]` | Capabilities, resolved config, payload key diff, last error | 0 usable; 1 only if config is malformed |
 | `cc-statusline version` | Version, commit, build date | 0 |
 
@@ -300,6 +302,15 @@ requiring it. Bare invocation prints usage and exits 0.
 §9.3 requires render to succeed without git; exit 1 would mean "unusable" and
 would trip health checks over a missing branch name.
 
+**`preview` is a development command that ships anyway.** It is how §9.4's gate
+is run, and a gate whose instrument is not in the released binary can only be
+run by someone with a Go toolchain and a checkout — which excludes every user
+who reports "the icons look wrong on my terminal". It costs one file, the
+embedded reference payloads §10.4's wizard needs regardless, and nothing on the
+`render` path. It reads the embedded defaults and never `~/.config`: §5.1's
+criteria are for the default preset, and a gate run against the developer's own
+config is a gate on that file.
+
 **`capture` records the environment, not just the payload.** It writes the raw
 stdin JSON plus `COLUMNS`, `LINES`, `TERM`, `COLORTERM`, `LANG`, `LC_CTYPE`, and
 `NO_COLOR` into a sidecar. Without those, §6's capability model is unverifiable
@@ -310,7 +321,7 @@ or the exit code.
 
 ### 4.2 Package layout
 
-Five internal packages. Packages that always change together are one package.
+Six internal packages. Packages that always change together are one package.
 
 ```
 cc-statusline/
@@ -318,7 +329,7 @@ cc-statusline/
 ├── go.mod
 ├── cmd/
 │   ├── render.go   config.go   init.go   uninstall.go
-│   ├── capture.go  doctor.go   version.go
+│   ├── capture.go  doctor.go   version.go  preview.go
 ├── internal/
 │   ├── payload/                # stdin JSON structs, (value, ok) accessors
 │   │   ├── payload.go  accessors.go  keydiff.go
@@ -332,13 +343,15 @@ cc-statusline/
 │   │   ├── model.go   context.go   cost.go     duration.go
 │   │   ├── ratelimit.go branch.go   diffstat.go project.go
 │   │   ├── join.go    fit.go    width.go   registry.go
-│   └── gitinfo/
-│       └── discover.go         # upward walk, gitdir indirection, HEAD parse
+│   ├── gitinfo/
+│   │   └── discover.go         # upward walk, gitdir indirection, HEAD parse
+│   └── refstate/               # §5.1's payloads, embedded — see below
+│       ├── refstate.go
+│       └── payloads/*.json     # + *.git.json sidecars, see §9.1
 ├── config/
 │   ├── config.example.toml
 │   └── presets/{default,minimal}.toml
 ├── testdata/
-│   ├── payloads/*.json         # + *.git.json sidecars, see §9.1
 │   ├── settings/*.json         # settings.json corpus, see §9.3
 │   └── golden/{plain,styled}/
 ├── docs/PRD.md
@@ -352,6 +365,20 @@ cc-statusline/
 No `-tags minimal` build tags. §13 defers that pending measurement, and §8.1
 already declares the runtime init floor uncontrollable, so the tags would be
 speculative complexity.
+
+**`refstate` is a package rather than testdata, added at M4.** The §5.1 payloads
+are consumed by three things and only one of them is a test: the acceptance
+criteria in `internal/line`, the §9.2 goldens, and §9.4's `preview`. §10.4 makes
+it four — the wizard falls back to a bundled fixture when the cache is empty. A
+`testdata/` directory reaches none of the non-test consumers, and `go install`
+leaves no repository on disk for them to read from, so the bytes are embedded.
+The alternative was four copies of the payload the gate is supposed to validate.
+
+> The tree above still lists `internal/line` as one file per segment and
+> `internal/config` with `env.go` / `paths.go`. The implementation put the eight
+> segments in `segments.go` and the resolution in `load.go`. That drift is
+> cosmetic and is noted rather than resolved, because the file names are not
+> what §4.2 is asserting — the package boundaries are.
 
 ### 4.3 The Segment interface
 
@@ -1143,6 +1170,11 @@ fixture may have a sibling `<name>.git.json` loaded directly into `Context.Git`:
 
 Without this, goldens would depend on the CI checkout's real branch.
 
+The five that exist today live in `internal/refstate/payloads` and are embedded
+rather than read from disk, because §9.4's `preview` and §10.4's wizard consume
+them outside a test binary. §4.2 has the reasoning. The rest of this table is
+still the M8 backlog.
+
 | Fixture | Exercises |
 |---|---|
 | `startup.json` | zero cost, null percent, no rate limits, `is_repo: false` |
@@ -1226,22 +1258,55 @@ absent, empty, and with a pre-existing `statusLine`.
 - [ ] `uninstall` removes only the `statusLine` key and leaves every other byte,
       and every later user edit, intact.
 
-### 9.4 Manual visual gate — before M3 freezes goldens
+### 9.4 Manual visual gate
 
 Goldens are byte-identical text, and the width harness measures with the same
 go-runewidth the code uses. **The tests therefore validate the implementation
 against its own assumption, and can never detect a real display-width violation
 or a missing Nerd Font glyph.**
 
-One human gate, recorded in the PR:
+The procedure is `docs/M4-visual-gate.md`; the instrument is
+`cc-statusline preview`, built at M4. Screenshots go in `docs/gate/`. This also
+closes §12 open question 1 (glyph availability) and 2 (gradient stops), which
+cannot be settled any other way.
 
-- Kitty, iTerm2, Terminal.app, and Windows Terminal
-- at 40 and 200 columns
-- with `LANG=en_US.UTF-8` and `LANG=ja_JP.UTF-8`
-- across ASCII, Unicode, Nerd Font, and Powerline
+**The instrument, and why the gate needed one.** `preview` renders the §5.1
+reference states — from `internal/refstate`, the same payloads the goldens
+assert against — against capability sets the terminal running it does not have,
+and draws under every line a **width rule**: `|---- 62 ----|`, exactly 62 cells
+of pure ASCII. ASCII is East Asian Narrow, so the rule occupies 62 columns in
+every terminal, every locale, and under every ambiguous-width setting. It is the
+one line on screen this program cannot be wrong about, which turns "does it look
+right" into "do these two lines end in the same column" — a question a
+screenshot answers permanently.
 
-Screenshots attached. This also closes §12 open question 1 (glyph availability)
-and 2 (gradient stops), which cannot be settled any other way.
+Without it the gate was: hand-assemble twenty-odd `render` invocations with a
+fixture on stdin and four environment variables in front of each, and judge
+alignment by eye against nothing. That gate gets skipped, and when it is not
+skipped it records an opinion.
+
+> **The terminal list in rev 7 was wrong, and is corrected here (rev 8).** It
+> named Kitty, iTerm2, Terminal.app, and **Windows Terminal** — and §13 defers
+> Windows support entirely. Gating v1 on a platform v1 does not support is a
+> spec error, not a missing screenshot. §10.1 ships `linux` and `darwin`, so the
+> gate is:
+>
+> | | |
+> |---|---|
+> | **Linux** | two of {ghostty, alacritty, kitty} — whichever are installed |
+> | **darwin** | iTerm2 and Terminal.app, before v0.1 is tagged (§11 M6) |
+> | ~~Windows Terminal~~ | out of scope until §13's Windows item lands |
+>
+> at 40, 120, and 200 columns, across ASCII / Unicode / Nerd Font / Powerline.
+>
+> **The locale axis was also overstated.** §6.4 resolves the ambiguous width by
+> prefix-matching `LC_ALL` / `LC_CTYPE` / `LANG` against `zh` `ja` `ko`; it never
+> calls `setlocale`, so `LANG=ja_JP.UTF-8` takes the CJK path whether or not the
+> locale is generated. Setting the variable therefore proves nothing about the
+> terminal, which decides ambiguous width from its own configuration in most
+> emulators. The real question — *which behaviour does this terminal have* — is
+> answered by rendering the same state under `--ambiguous 1` and `--ambiguous 2`
+> and seeing which one lands on its rule.
 
 ---
 
@@ -1351,7 +1416,7 @@ is driven by config concepts), and the README moved to M6 with the first release
 | ~~**M1 Skeleton**~~ **DONE** | Module, payload structs, `(value, ok)` accessors, key diff, buffered output + recover contract, `render` / `capture` / `version` | ✅ 12 hostile inputs render a fallback line and exit 0; the recover is exercised by an injected panic |
 | ~~**M2 Render core**~~ **DONE** | Segment interface, 8 segments, `gitinfo` HEAD reader, plain joining, `Capabilities` struct, **§6.5 forced-TTY renderer** | ✅ All four §5.1 states byte-identical; colour survives a pipe at every profile |
 | ~~**M3 Config + polish**~~ **DONE** | TOML schema, XDG resolution, env overlay, validation, 2 presets, gradient, glyph sets, powerline, go-runewidth, drop→truncate→clip | ✅ All four reference states match plain goldens across 3 icon sets × 2 separator styles × 4 widths + a CJK row; no line exceeds `available` at any width from 10 to 200 |
-| **M4 Visual gate** | §9.4 manual pass across 4 terminals × 2 locales × 4 capability sets | Screenshots in the PR; glyphs and stops locked |
+| **M4 Visual gate** — **harness DONE, human pass outstanding** | `cc-statusline preview` + `--probe`, `internal/refstate`, `docs/M4-visual-gate.md`. §9.4's terminal and locale axes corrected. | Harness: ✅ preview and render produce identical bytes from the same fixture; the width rule is ASCII-only at every length. Human: screenshots in `docs/gate/`, C-2 / C-6 / C-7 and §12 Q1/Q2 resolved with reasons |
 | **M5 Install** | `init`, `uninstall`, `doctor`, `version`, sjson + comment refusal, GoReleaser, release workflow, `install.sh` + checksums, **README** | Clean machine, no Go, installs via curl and passes `env -i` |
 | **M6 Release v0.1** | Tag, publish, use it yourself for a week | One non-you user has it installed |
 | **M7 Wizard** | Bubble Tea `config`, live preview, capability toggles, width slider | Full configuration without editing TOML |
@@ -1403,7 +1468,8 @@ informed by use rather than a bet placed before it.
 ## 14. Review history
 
 Two adversarial rounds (7/10, then 8/10), one engineering review, one outside
-voice. Rev 4 folds all of it. Rev 5 folds M0's measurements.
+voice. Rev 4 folds all of it. Rev 5 folds M0's measurements; rev 6, M2's; rev 7,
+M3's; rev 8, M4's.
 
 **M0 (rev 5)** replaced §3.1.1's questions with answers. The headline finding is
 that `used_percentage` measures the **raw** window, which leaves §5.4's
@@ -1467,6 +1533,39 @@ inventing a palette: §7.2 has no per-segment background colours, and choosing
 sixteen of them without a terminal in front of you is what §9.4 exists to
 prevent.
 
+**M4 (rev 8)** is the one milestone whose exit criterion a person has to sign,
+so the work was to make signing it cheap and to make the signature mean
+something. Three findings.
+
+*The gate had no instrument.* §9.4 asked for screenshots of a status line, which
+records an opinion: a line that overflows by one cell and a line that does not
+look identical in a photograph. `preview` now draws a **width rule** under every
+line — exactly as many cells as the renderer believes the line occupies, in pure
+ASCII, which is Narrow everywhere. The comparison the human makes is no longer
+"does this look right" but "do these two lines end in the same column", and the
+screenshot preserves the answer. §9.4 carries the reasoning.
+
+*§9.4's terminal list gated v1 on a platform §13 defers.* Windows Terminal was
+one of four required terminals; Windows support is explicitly out of scope. The
+list is now scoped to what §10.1 ships, with the macOS half recorded as
+outstanding rather than quietly dropped. The locale axis was overstated the
+other way: §6.4 never calls `setlocale`, so setting `LANG=ja_JP.UTF-8` exercises
+*our* CJK path and tells you nothing about the terminal's. §9.4 now measures the
+terminal's behaviour instead of assuming the variable transmits it.
+
+*The reference payloads existed in three copies.* §5.1's criteria, §9.2's
+goldens, and the new preview each had their own — two agreeing by coincidence,
+the third hand-copied. A gate where the human signs off on a payload that is not
+the payload the criteria assert against validates nothing, so they collapsed
+into `internal/refstate` and `TestPreviewShowsWhatTheGoldensAssert` holds
+preview and render to the same bytes. This is also §10.4's bundled wizard
+fixture, which would otherwise have become a fourth copy at M7.
+
+C-7 stops being an argument and becomes a procedure: `preview --probe` prints a
+column ruler exactly `COLUMNS` wide, installed as the statusLine command, and
+whatever covers its right-hand end is what `width_reserve` exists to avoid. The
+number is read off, not reasoned about.
+
 **Rounds 1–2** fixed: the forced-TTY color trap (§6.5), the unsatisfiable bar-fill
 triple, cross-line drop ordering, non-hermetic git fixtures, the debounce
 misreading, the exit-code contract, `TIOCGWINSZ` under output capture, East Asian
@@ -1524,7 +1623,8 @@ installer; if they handle it, delete the refusal path.
 lit cell stays near the ramp start at every level, so much of the bar's ink does
 not move as the session fills. Accepted to match the mockups. Settle it at the M4
 visual gate: if it reads as "same rainbow, different length," switch to solid
-`ramp(p_exact/100)`.
+`ramp(p_exact/100)`. Procedure: `docs/M4-visual-gate.md` §3.3 — compare
+`normal-42` at four filled cells against `danger-92` at nine.
 
 **C-3 — two lines may be the wrong default (§12 Q5).** Not resolved. Revisit at
 M6 with real feedback.
@@ -1554,14 +1654,24 @@ What `CC_STATUSLINE_POWERLINE=1` delivers today is the arrow as a separator
 glyph in the separator colour — the shape of Powerline without the fills, which
 is a real style that real prompts use. Decide at M4 whether the filled variant is
 worth a palette. Stage 3 already appends its reset unconditionally, so the filled
-variant would not require revisiting the clip.
+variant would not require revisiting the clip. Procedure: `docs/M4-visual-gate.md`
+§5 — does the bare arrow read as intentional, or as a broken Powerline?
 
 **C-7 — `width_reserve = 12` is a guess, and §5.1 now depends on it (§5.6).**
 The value exists to keep clear of Claude Code's own notifications on the right of
 the same row, and was never measured. It is now load-bearing: at the default 80
 columns it is the two cells that stop the danger reference state from fitting.
-10 would make it fit exactly. Measure the notification width at M4 and set the
-default from that rather than from caution.
+10 would make it fit exactly.
+
+It cannot be measured from inside the process: Claude Code captures stdout, so
+there is no terminal to interrogate and §5.6 already rules out `TIOCGWINSZ`.
+M4 ships the measurement instead of the argument. `cc-statusline preview --probe`
+prints two lines exactly `COLUMNS` wide — a tens ruler and a `----+----1` ruler
+— and, installed as the `statusLine` command, is drawn by Claude Code itself.
+The highest column still visible is `V`, the ruler's own last label is `C`, and
+`width_reserve = C - V`. Run it twice, once with a notification on screen.
+Procedure: `docs/M4-visual-gate.md` §4. If the answer is not 12, §5.6's default
+changes and `TestReferenceStatesAtEighty` is regenerated.
 
 ---
 

@@ -8,6 +8,7 @@ import (
 	"github.com/xqsit94/cc-statusline/internal/config"
 	"github.com/xqsit94/cc-statusline/internal/gitinfo"
 	"github.com/xqsit94/cc-statusline/internal/payload"
+	"github.com/xqsit94/cc-statusline/internal/refstate"
 	"github.com/xqsit94/cc-statusline/internal/style"
 )
 
@@ -33,37 +34,28 @@ func ctxFor(t *testing.T, js string, env map[string]string, branch string) Conte
 	}
 }
 
+// TestReferenceStates is PRD §5.1, executed.
+//
+// The payloads come from internal/refstate and the expected lines stay written
+// out here, and the asymmetry is deliberate. The payload is an input, and one
+// copy of it is shared with the goldens and with §9.4's `preview` so that all
+// three judge the same thing. The expected lines are the acceptance criteria
+// themselves: they are quoted from the document, and a criterion that is
+// computed rather than quoted cannot fail.
 func TestReferenceStates(t *testing.T) {
 	cases := []struct {
-		name    string
-		payload string
-		branch  string
-		want    []string
+		state string
+		want  []string
 	}{
 		{
-			name: "normal — 42%, everything fine",
-			payload: `{"model":{"display_name":"Claude Opus 4.6"},
-				"workspace":{"project_dir":"/home/u/my-project"},
-				"cost":{"total_cost_usd":0.85,"total_duration_ms":180000,
-				        "total_lines_added":150,"total_lines_removed":30},
-				"context_window":{"context_window_size":200000,"total_input_tokens":84000},
-				"rate_limits":{"five_hour":{"used_percentage":15},
-				               "seven_day":{"used_percentage":8}}}`,
-			branch: "main",
+			state: "normal-42",
 			want: []string{
 				"◆ Claude Opus 4.6 │ ▓▓▓▓░░░░░░ 42% │ $0.85 │ 3m │ 5h:15% 7d:8%",
 				"⎇ main │ +150/-30 │ my-project",
 			},
 		},
 		{
-			name: "warning — 75%, one rate limit window",
-			payload: `{"model":{"display_name":"Claude Sonnet 4.6"},
-				"workspace":{"project_dir":"/home/u/my-project"},
-				"cost":{"total_cost_usd":3.20,"total_duration_ms":720000,
-				        "total_lines_added":280,"total_lines_removed":45},
-				"context_window":{"context_window_size":200000,"total_input_tokens":150000},
-				"rate_limits":{"five_hour":{"used_percentage":48}}}`,
-			branch: "feat/auth",
+			state: "warning-75",
 			want: []string{
 				"◆ Claude Sonnet 4.6 │ ▓▓▓▓▓▓▓▓░░ 75% │ $3.20 │ 12m │ 5h:48%",
 				"⎇ feat/auth │ +280/-45 │ my-project",
@@ -72,15 +64,7 @@ func TestReferenceStates(t *testing.T) {
 		{
 			// 92% of 10 cells rounds to 9, not 10. No rounding rule produces
 			// the original mockup's (4, 8, 10) triple — PRD §5.1 delta (a).
-			name: "danger — 92%, warn marker and a 1M window",
-			payload: `{"model":{"display_name":"Claude Opus 4.6"},
-				"workspace":{"project_dir":"/home/u/api-server"},
-				"cost":{"total_cost_usd":15.30,"total_duration_ms":2700000,
-				        "total_lines_added":500,"total_lines_removed":120},
-				"context_window":{"context_window_size":1000000,"total_input_tokens":920000},
-				"rate_limits":{"five_hour":{"used_percentage":85},
-				               "seven_day":{"used_percentage":62}}}`,
-			branch: "main",
+			state: "danger-92",
 			want: []string{
 				"◆ Claude Opus 4.6 │ ▓▓▓▓▓▓▓▓▓░ 92% ⚠ 1M │ $15.30 │ 45m │ 5h:85% 7d:62%",
 				"⎇ main │ +500/-120 │ api-server",
@@ -90,13 +74,7 @@ func TestReferenceStates(t *testing.T) {
 			// Every optional segment absent at once: no git, no diff, no rate
 			// limits, and a duration below the one-minute floor. Line 2
 			// collapses to the bare project name.
-			name: "startup — clean, no noise",
-			payload: `{"model":{"display_name":"Claude Opus 4.6"},
-				"workspace":{"project_dir":"/home/u/claude-temp"},
-				"cost":{"total_cost_usd":0,"total_duration_ms":4000,
-				        "total_lines_added":0,"total_lines_removed":0},
-				"context_window":{"context_window_size":1000000,
-				                  "total_input_tokens":0,"used_percentage":null}}`,
+			state: "startup",
 			want: []string{
 				"◆ Claude Opus 4.6 │ ░░░░░░░░░░ 0% 1M │ $0.00",
 				"claude-temp",
@@ -104,8 +82,12 @@ func TestReferenceStates(t *testing.T) {
 		},
 	}
 
+	if len(cases) != len(refstate.References()) {
+		t.Fatalf("%d cases against %d reference states", len(cases), len(refstate.References()))
+	}
+
 	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
+		t.Run(tc.state, func(t *testing.T) {
 			// §5.1 states no width, and one of the four needs one.
 			//
 			// The danger state is 70 cells. `available` is
@@ -115,9 +97,25 @@ func TestReferenceStates(t *testing.T) {
 			// columns up; TestReferenceStatesAtEighty records what happens
 			// below that. This is a gap in §5.1, not in the fitter.
 			env := map[string]string{"COLUMNS": "120"}
-			got := RenderPlain(ctxFor(t, tc.payload, env, tc.branch))
-			assertLines(t, got, tc.want)
+			assertLines(t, RenderPlain(ctxForState(t, tc.state, env)), tc.want)
 		})
+	}
+}
+
+// ctxForState builds a render context from one of PRD §5.1's shared payloads.
+func ctxForState(t *testing.T, name string, env map[string]string) Context {
+	t.Helper()
+	st, ok := refstate.ByName(name)
+	if !ok {
+		t.Fatalf("no reference state named %q; have %v", name, refstate.Names())
+	}
+	p, _ := payload.Parse(st.Payload)
+	cfg := config.Defaults()
+	return Context{
+		Payload: p,
+		Config:  cfg,
+		Git:     st.Git,
+		Style:   style.NewStyle(style.Detect(env, cfg), cfg),
 	}
 }
 
@@ -129,14 +127,7 @@ func TestReferenceStates(t *testing.T) {
 // of writing it down is that the next person to see `45m` missing at 80 columns
 // finds this test instead of filing a bug.
 func TestReferenceStatesAtEighty(t *testing.T) {
-	ctx := ctxFor(t, `{"model":{"display_name":"Claude Opus 4.6"},
-		"workspace":{"project_dir":"/home/u/api-server"},
-		"cost":{"total_cost_usd":15.30,"total_duration_ms":2700000,
-		        "total_lines_added":500,"total_lines_removed":120},
-		"context_window":{"context_window_size":1000000,"total_input_tokens":920000},
-		"rate_limits":{"five_hour":{"used_percentage":85},
-		               "seven_day":{"used_percentage":62}}}`,
-		map[string]string{"COLUMNS": "80"}, "main")
+	ctx := ctxForState(t, "danger-92", map[string]string{"COLUMNS": "80"})
 
 	assertLines(t, RenderPlain(ctx), []string{
 		"◆ Claude Opus 4.6 │ ▓▓▓▓▓▓▓▓▓░ 92% ⚠ 1M │ $15.30 │ 5h:85% 7d:62%",
@@ -147,14 +138,10 @@ func TestReferenceStatesAtEighty(t *testing.T) {
 func TestASCIIReferenceState(t *testing.T) {
 	// PRD §6.2's worked example. The point is that one environment variable
 	// degrades every glyph — nothing in the shipped config hardcodes `▓`.
-	ctx := ctxFor(t, `{"model":{"display_name":"Claude Opus 4.6"},
-		"workspace":{"project_dir":"/home/u/my-project"},
-		"cost":{"total_cost_usd":0.85,"total_duration_ms":180000,
-		        "total_lines_added":150,"total_lines_removed":30},
-		"context_window":{"context_window_size":200000,"total_input_tokens":84000},
-		"rate_limits":{"five_hour":{"used_percentage":15},
-		               "seven_day":{"used_percentage":8}}}`,
-		map[string]string{"CC_STATUSLINE_ASCII": "1"}, "main")
+	ctx := ctxForState(t, "normal-42", map[string]string{
+		"CC_STATUSLINE_ASCII": "1",
+		"COLUMNS":             "120",
+	})
 
 	assertLines(t, RenderPlain(ctx), []string{
 		"* Claude Opus 4.6 | ####------ 42% | $0.85 | 3m | 5h:15% 7d:8%",

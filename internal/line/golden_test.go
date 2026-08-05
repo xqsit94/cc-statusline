@@ -1,7 +1,6 @@
 package line
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -10,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/xqsit94/cc-statusline/internal/config"
-	"github.com/xqsit94/cc-statusline/internal/gitinfo"
 	"github.com/xqsit94/cc-statusline/internal/payload"
+	"github.com/xqsit94/cc-statusline/internal/refstate"
 	"github.com/xqsit94/cc-statusline/internal/style"
 )
 
@@ -38,21 +37,20 @@ var (
 	goldenWidths = []int{40, 80, 120, 200}
 )
 
-// gitSidecar is PRD §9.1's injected git state.
+// The payloads come from internal/refstate, not from a testdata directory
+// beside this file. §9.4's visual gate renders the same four states through
+// `cc-statusline preview`, and a human signing off on a payload that is not the
+// one these goldens assert against would be signing off on nothing.
 //
-// Git is injected rather than discovered so the goldens are hermetic. Reading
-// the real .git would make every golden depend on which branch the developer
-// happens to be on, which is the definition of a flaky test.
-type gitSidecar struct {
-	IsRepo bool   `json:"is_repo"`
-	Branch string `json:"branch"`
-}
+// Git travels with them, injected rather than discovered, so the goldens are
+// hermetic: reading the real .git would make every golden depend on which
+// branch the developer happens to be standing on.
 
 func TestPlainGoldens(t *testing.T) {
-	for _, name := range fixtureNames(t) {
-		t.Run(name, func(t *testing.T) {
-			got := renderMatrix(t, name)
-			path := filepath.Join("testdata", "golden", name+".txt")
+	for _, st := range refstate.All() {
+		t.Run(st.Name, func(t *testing.T) {
+			got := renderMatrix(t, st)
+			path := filepath.Join("testdata", "golden", st.Name+".txt")
 
 			if *update {
 				if err := os.WriteFile(path, []byte(got), 0o644); err != nil {
@@ -66,7 +64,7 @@ func TestPlainGoldens(t *testing.T) {
 			}
 			if got != string(want) {
 				t.Errorf("golden mismatch for %s; run with -update and read the diff\n\n%s",
-					name, firstDifference(string(want), got))
+					st.Name, firstDifference(string(want), got))
 			}
 		})
 	}
@@ -82,12 +80,12 @@ func TestPlainGoldens(t *testing.T) {
 // the floor in `available` is the only thing standing between a 10-column
 // terminal and a negative budget.
 func TestNoLineExceedsAvailable(t *testing.T) {
-	for _, name := range fixtureNames(t) {
+	for _, st := range refstate.All() {
 		for _, icons := range goldenIcons {
 			for _, cols := range []int{10, 20, 40, 60, 80, 120, 200} {
 				for _, ambiguous := range []string{"1", "2"} {
-					t.Run(fmt.Sprintf("%s/%s/%d/amb%s", name, icons, cols, ambiguous), func(t *testing.T) {
-						ctx := goldenContext(t, name, icons, "powerline", cols, ambiguous)
+					t.Run(fmt.Sprintf("%s/%s/%d/amb%s", st.Name, icons, cols, ambiguous), func(t *testing.T) {
+						ctx := goldenContext(t, st, icons, "powerline", cols, ambiguous)
 						avail := available(ctx)
 						for i, l := range RenderPlain(ctx) {
 							if w := ctx.Style.Width(l); w > avail {
@@ -102,14 +100,14 @@ func TestNoLineExceedsAvailable(t *testing.T) {
 	}
 }
 
-func renderMatrix(t *testing.T, name string) string {
+func renderMatrix(t *testing.T, st refstate.State) string {
 	t.Helper()
 	var b strings.Builder
 	for _, icons := range goldenIcons {
 		for _, sep := range goldenSeps {
 			for _, w := range goldenWidths {
 				fmt.Fprintf(&b, "--- %s %s %d\n", icons, sep, w)
-				for _, l := range RenderPlain(goldenContext(t, name, icons, sep, w, "1")) {
+				for _, l := range RenderPlain(goldenContext(t, st, icons, sep, w, "1")) {
 					b.WriteString(l)
 					b.WriteByte('\n')
 				}
@@ -120,30 +118,17 @@ func renderMatrix(t *testing.T, name string) string {
 	// two cells under a CJK locale, so this is the only row where the width
 	// arithmetic and the glyph count disagree.
 	fmt.Fprintf(&b, "--- unicode plain 80 LANG=ja_JP.UTF-8\n")
-	for _, l := range RenderPlain(goldenContext(t, name, "unicode", "plain", 80, "2")) {
+	for _, l := range RenderPlain(goldenContext(t, st, "unicode", "plain", 80, "2")) {
 		b.WriteString(l)
 		b.WriteByte('\n')
 	}
 	return b.String()
 }
 
-func goldenContext(t *testing.T, name, icons, sep string, cols int, ambiguous string) Context {
+func goldenContext(t *testing.T, st refstate.State, icons, sep string, cols int, ambiguous string) Context {
 	t.Helper()
 
-	raw, err := os.ReadFile(filepath.Join("testdata", "fixtures", name+".json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, _ := payload.Parse(raw)
-
-	var git gitinfo.Info
-	if sidecar, err := os.ReadFile(filepath.Join("testdata", "fixtures", name+".git.json")); err == nil {
-		var g gitSidecar
-		if err := json.Unmarshal(sidecar, &g); err != nil {
-			t.Fatalf("%s.git.json: %v", name, err)
-		}
-		git = gitinfo.Info{Found: g.IsRepo, Branch: g.Branch, GitDir: "/synthetic/.git"}
-	}
+	p, _ := payload.Parse(st.Payload)
 
 	env := map[string]string{
 		"COLUMNS": fmt.Sprint(cols),
@@ -172,29 +157,32 @@ func goldenContext(t *testing.T, name, icons, sep string, cols int, ambiguous st
 	return Context{
 		Payload: p,
 		Config:  cfg,
-		Git:     git,
+		Git:     st.Git,
 		Style:   style.NewStyle(style.Detect(env, cfg), cfg),
 	}
 }
 
-func fixtureNames(t *testing.T) []string {
-	t.Helper()
-	entries, err := filepath.Glob(filepath.Join("testdata", "fixtures", "*.json"))
+// TestNoOrphanGoldens catches the other direction of the move to refstate: a
+// golden file whose fixture no longer exists is never compared against
+// anything, so it sits in the repository looking like coverage.
+func TestNoOrphanGoldens(t *testing.T) {
+	known := map[string]bool{}
+	for _, st := range refstate.All() {
+		known[st.Name] = true
+	}
+	entries, err := filepath.Glob(filepath.Join("testdata", "golden", "*.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var names []string
 	for _, e := range entries {
-		base := strings.TrimSuffix(filepath.Base(e), ".json")
-		if strings.HasSuffix(base, ".git") {
-			continue
+		name := strings.TrimSuffix(filepath.Base(e), ".txt")
+		if !known[name] {
+			t.Errorf("%s has no fixture in internal/refstate; delete it or restore the payload", e)
 		}
-		names = append(names, base)
 	}
-	if len(names) == 0 {
-		t.Fatal("no fixtures in testdata/fixtures")
+	if len(entries) != len(known) {
+		t.Errorf("%d goldens, %d fixtures", len(entries), len(known))
 	}
-	return names
 }
 
 // firstDifference reports the first differing line, so a failure names one line

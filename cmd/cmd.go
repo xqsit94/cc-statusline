@@ -19,6 +19,16 @@ const Usage = `cc-statusline — a Claude Code status line
         Render, and tee the payload and terminal environment to FILE
         (default $XDG_CACHE_HOME/cc-statusline/last-payload.json).
 
+  cc-statusline preview [--matrix] [--state NAME] [--width N]
+                        [--icons SET] [--sep STYLE] [--ambiguous N]
+        Render the PRD §5.1 reference states with a width rule under each
+        line, against capability sets this terminal may not have. The
+        harness for §9.4's manual visual gate; see docs/M4-visual-gate.md.
+
+  cc-statusline preview --probe
+        Print a column ruler instead of a status line. Install it as the
+        statusLine command to measure what width_reserve should be (C-7).
+
   cc-statusline version
         Version, commit, and build date.
 
@@ -48,6 +58,8 @@ func Main(args []string, env map[string]string) int {
 		return Render(args[1:], env, os.Stdin, os.Stdout)
 	case "capture":
 		return Capture(args[1:], env, os.Stdin, os.Stdout)
+	case "preview":
+		return Preview(args[1:], env, os.Stdin, os.Stdout)
 	case "version":
 		return Version(os.Stdout)
 	case "spike":
