@@ -37,7 +37,7 @@ Not yet implemented: config (M7), init / uninstall / doctor (M5).
 // descriptors — that is, under cron, under CI, and under the `env -i` test
 // §9.3 mandates. `init` writes the subcommand explicitly, so requiring it
 // costs nothing.
-func Main(args []string) int {
+func Main(args []string, env map[string]string) int {
 	if len(args) == 0 {
 		fmt.Print(Usage)
 		return 0
@@ -45,9 +45,9 @@ func Main(args []string) int {
 
 	switch args[0] {
 	case "render":
-		return Render(args[1:], os.Stdin, os.Stdout)
+		return Render(args[1:], env, os.Stdin, os.Stdout)
 	case "capture":
-		return Capture(args[1:], os.Stdin, os.Stdout)
+		return Capture(args[1:], env, os.Stdin, os.Stdout)
 	case "version":
 		return Version(os.Stdout)
 	case "spike":

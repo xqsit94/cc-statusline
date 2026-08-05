@@ -8,7 +8,11 @@ import (
 	"os"
 	"strings"
 
+	"github.com/xqsit94/cc-statusline/internal/config"
+	"github.com/xqsit94/cc-statusline/internal/gitinfo"
+	"github.com/xqsit94/cc-statusline/internal/line"
 	"github.com/xqsit94/cc-statusline/internal/payload"
+	"github.com/xqsit94/cc-statusline/internal/style"
 )
 
 // Render implements `cc-statusline render`. It is the hot path, and it holds
@@ -28,7 +32,7 @@ import (
 // rather than the path Claude Code invokes: an unreadable file exits 1 and
 // explains itself on stderr, because silently rendering someone else's stdin
 // would be worse than a visible failure.
-func Render(args []string, stdin io.Reader, stdout io.Writer) (code int) {
+func Render(args []string, env map[string]string, stdin io.Reader, stdout io.Writer) (code int) {
 	var out bytes.Buffer
 	var p *payload.Payload
 
@@ -54,7 +58,7 @@ func Render(args []string, stdin io.Reader, stdout io.Writer) (code int) {
 	// nothing. The error itself becomes visible through `doctor` at M5.
 	p, _ = payload.Decode(src)
 
-	lines := renderLines(p)
+	lines := renderLines(p, env)
 	for _, line := range lines {
 		if strings.TrimSpace(line) == "" {
 			continue
@@ -75,14 +79,52 @@ func Render(args []string, stdin io.Reader, stdout io.Writer) (code int) {
 
 // renderLines builds the status line body.
 //
-// M1 emits the model line only; M2 replaces this with the segment pipeline of
-// PRD §4.4. It is a variable rather than a function so that tests can install a
-// panicking implementation and prove the recover above actually holds — a
-// contract nothing else can exercise, since correct code never panics.
+// It is a variable rather than a function so that tests can install a panicking
+// implementation and prove the recover above actually holds — a contract
+// nothing else can exercise, since correct code never panics.
 var renderLines = defaultRenderLines
 
-func defaultRenderLines(p *payload.Payload) []string {
-	return []string{fallback(p)}
+// defaultRenderLines is PRD §4.4's pipeline. Every arrow in that diagram is
+// in-process: nothing forks, nothing dials, nothing awaits.
+//
+// Config loading is still the embedded defaults only; the XDG file and the
+// CC_STATUSLINE_* overlay land at M3, which is why cfg is built rather than
+// loaded here.
+func defaultRenderLines(p *payload.Payload, env map[string]string) []string {
+	cfg := config.Defaults()
+	caps := style.Detect(env, cfg)
+
+	ctx := line.Context{
+		Payload: p,
+		Config:  cfg,
+		Style:   style.NewStyle(caps, cfg),
+		Git:     discoverGit(env, p, cfg),
+	}
+	return line.Render(ctx)
+}
+
+// discoverGit resolves the branch once, before the segment loop.
+//
+// The starting directory is the payload's workspace.current_dir, never
+// os.Getwd(): a session whose directory was deleted underneath it makes Getwd
+// return ENOENT, and the branch would disappear for a reason unrelated to git.
+func discoverGit(env map[string]string, p *payload.Payload, cfg *config.Config) gitinfo.Info {
+	if !cfg.Git.Enabled || truthy(env["CC_STATUSLINE_NO_GIT"]) {
+		return gitinfo.Info{}
+	}
+	dir, ok := p.CurrentDir()
+	if !ok {
+		return gitinfo.Info{}
+	}
+	return gitinfo.Discover(env, dir)
+}
+
+func truthy(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "1", "true", "yes", "on":
+		return true
+	}
+	return false
 }
 
 // fallback is PRD §3.3's last line of defence: the model name if anything at

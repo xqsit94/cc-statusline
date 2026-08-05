@@ -25,9 +25,9 @@ func TestRenderHoldsTheFailureContract(t *testing.T) {
 	cases := []struct {
 		name  string
 		stdin string
-		want  string // expected exact line
+		want  string // expected exact output; "" means "any non-empty line"
 	}{
-		{"real payload", realPayload, "◆ Opus 5 (1M context)"},
+		{"real payload", realPayload, ""},
 		{"empty object", `{}`, "cc-statusline"},
 		{"empty stdin", ``, "cc-statusline"},
 		{"json null", `null`, "cc-statusline"},
@@ -44,12 +44,16 @@ func TestRenderHoldsTheFailureContract(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			var out bytes.Buffer
-			code := Render(nil, strings.NewReader(tc.stdin), &out)
+			code := Render(nil, nil, strings.NewReader(tc.stdin), &out)
 
 			if code != 0 {
 				t.Errorf("exit = %d, want 0 (non-zero blanks the status line)", code)
 			}
-			if got := out.String(); got != tc.want+"\n" {
+			got := out.String()
+			if strings.TrimSpace(got) == "" {
+				t.Fatal("stdout is empty; the status line would render blank")
+			}
+			if tc.want != "" && got != tc.want+"\n" {
 				t.Errorf("stdout = %q, want %q", got, tc.want+"\n")
 			}
 		})
@@ -63,11 +67,11 @@ func TestRenderRecoversFromAPanic(t *testing.T) {
 	t.Cleanup(func() { renderLines = original })
 
 	t.Run("panic yields the model name", func(t *testing.T) {
-		renderLines = func(p *payload.Payload) []string {
+		renderLines = func(p *payload.Payload, env map[string]string) []string {
 			panic("segment exploded")
 		}
 		var out bytes.Buffer
-		if code := Render(nil, strings.NewReader(realPayload), &out); code != 0 {
+		if code := Render(nil, nil, strings.NewReader(realPayload), &out); code != 0 {
 			t.Errorf("exit = %d, want 0", code)
 		}
 		if got, want := out.String(), "◆ Opus 5 (1M context)\n"; got != want {
@@ -78,12 +82,12 @@ func TestRenderRecoversFromAPanic(t *testing.T) {
 	t.Run("buffer is reset before the fallback", func(t *testing.T) {
 		// A segment that writes a partial line and then dies must not leave
 		// that fragment on screen ahead of the fallback.
-		renderLines = func(p *payload.Payload) []string {
+		renderLines = func(p *payload.Payload, env map[string]string) []string {
 			defer panic("died after emitting")
 			return []string{"PARTIAL-LINE-THAT-MUST-NOT-SURVIVE"}
 		}
 		var out bytes.Buffer
-		Render(nil, strings.NewReader(realPayload), &out)
+		Render(nil, nil, strings.NewReader(realPayload), &out)
 
 		if strings.Contains(out.String(), "PARTIAL") {
 			t.Errorf("stdout = %q, want the torn line discarded", out.String())
@@ -94,9 +98,9 @@ func TestRenderRecoversFromAPanic(t *testing.T) {
 	})
 
 	t.Run("panic with no payload still prints a line", func(t *testing.T) {
-		renderLines = func(p *payload.Payload) []string { panic("nope") }
+		renderLines = func(p *payload.Payload, env map[string]string) []string { panic("nope") }
 		var out bytes.Buffer
-		Render(nil, strings.NewReader("garbage"), &out)
+		Render(nil, nil, strings.NewReader("garbage"), &out)
 		if got, want := out.String(), "cc-statusline\n"; got != want {
 			t.Errorf("stdout = %q, want %q", got, want)
 		}
@@ -116,9 +120,9 @@ func TestRenderNeverEmitsAnEmptyLine(t *testing.T) {
 		"nil":          nil,
 	} {
 		t.Run(name, func(t *testing.T) {
-			renderLines = func(p *payload.Payload) []string { return lines }
+			renderLines = func(p *payload.Payload, env map[string]string) []string { return lines }
 			var out bytes.Buffer
-			Render(nil, strings.NewReader(realPayload), &out)
+			Render(nil, nil, strings.NewReader(realPayload), &out)
 			if got, want := out.String(), "◆ Opus 5 (1M context)\n"; got != want {
 				t.Errorf("stdout = %q, want %q", got, want)
 			}
@@ -138,18 +142,21 @@ func TestRenderPayloadFlag(t *testing.T) {
 		// stdin deliberately holds a different model, so a pass-through bug
 		// would be visible rather than coincidentally correct.
 		stdin := strings.NewReader(`{"model":{"display_name":"WRONG"}}`)
-		if code := Render([]string{"--payload", good}, stdin, &out); code != 0 {
+		if code := Render([]string{"--payload", good}, nil, stdin, &out); code != 0 {
 			t.Errorf("exit = %d, want 0", code)
 		}
-		if got, want := out.String(), "◆ Opus 5 (1M context)\n"; got != want {
-			t.Errorf("stdout = %q, want %q", got, want)
+		if !strings.Contains(out.String(), "Opus 5 (1M context)") {
+			t.Errorf("stdout = %q, want the file's model", out.String())
+		}
+		if strings.Contains(out.String(), "WRONG") {
+			t.Errorf("stdout = %q; stdin leaked past --payload", out.String())
 		}
 	})
 
 	t.Run("unreadable file exits 1 — the one exception", func(t *testing.T) {
 		var out bytes.Buffer
 		code := Render([]string{"--payload", filepath.Join(dir, "absent.json")},
-			strings.NewReader(realPayload), &out)
+			nil, strings.NewReader(realPayload), &out)
 		if code != 1 {
 			t.Errorf("exit = %d, want 1 (PRD §4.1's only non-zero render path)", code)
 		}
@@ -157,7 +164,7 @@ func TestRenderPayloadFlag(t *testing.T) {
 
 	t.Run("a bad flag still renders", func(t *testing.T) {
 		var out bytes.Buffer
-		if code := Render([]string{"--nonsense"}, strings.NewReader(realPayload), &out); code != 0 {
+		if code := Render([]string{"--nonsense"}, nil, strings.NewReader(realPayload), &out); code != 0 {
 			t.Errorf("exit = %d, want 0", code)
 		}
 		if strings.TrimSpace(out.String()) == "" {
@@ -175,11 +182,11 @@ func TestCaptureRendersAndTees(t *testing.T) {
 	t.Setenv("COLUMNS", "120")
 
 	var out bytes.Buffer
-	if code := Capture([]string{explicit}, strings.NewReader(realPayload), &out); code != 0 {
+	if code := Capture([]string{explicit}, nil, strings.NewReader(realPayload), &out); code != 0 {
 		t.Fatalf("exit = %d, want 0", code)
 	}
-	if got, want := out.String(), "◆ Opus 5 (1M context)\n"; got != want {
-		t.Errorf("stdout = %q, want %q", got, want)
+	if !strings.Contains(out.String(), "Opus 5 (1M context)") {
+		t.Errorf("stdout = %q, want it to carry the model name", out.String())
 	}
 
 	def, err := DefaultCapturePath()
@@ -216,11 +223,11 @@ func TestCaptureSurvivesAnUnwritableTarget(t *testing.T) {
 
 	var out bytes.Buffer
 	if code := Capture([]string{filepath.Join(blocked, "explicit.json")},
-		strings.NewReader(realPayload), &out); code != 0 {
+		nil, strings.NewReader(realPayload), &out); code != 0 {
 		t.Errorf("exit = %d, want 0", code)
 	}
-	if got, want := out.String(), "◆ Opus 5 (1M context)\n"; got != want {
-		t.Errorf("stdout = %q, want %q", got, want)
+	if !strings.Contains(out.String(), "Opus 5 (1M context)") {
+		t.Errorf("stdout = %q, want a rendered line despite the failed capture", out.String())
 	}
 }
 
@@ -231,7 +238,7 @@ func TestCaptureKeepsMalformedPayloads(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", dir)
 
 	var out bytes.Buffer
-	Capture(nil, strings.NewReader("this is not json"), &out)
+	Capture(nil, nil, strings.NewReader("this is not json"), &out)
 
 	def, _ := DefaultCapturePath()
 	b, err := os.ReadFile(def)
@@ -247,10 +254,10 @@ func TestCaptureKeepsMalformedPayloads(t *testing.T) {
 }
 
 func TestMainDispatch(t *testing.T) {
-	if code := Main(nil); code != 0 {
+	if code := Main(nil, nil); code != 0 {
 		t.Errorf("bare invocation exit = %d, want 0 (PRD §4.1)", code)
 	}
-	if code := Main([]string{"no-such-subcommand"}); code != 2 {
+	if code := Main([]string{"no-such-subcommand"}, nil); code != 2 {
 		t.Errorf("unknown subcommand exit = %d, want 2", code)
 	}
 }

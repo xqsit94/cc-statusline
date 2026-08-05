@@ -12,9 +12,10 @@ import (
 	"os"
 
 	"github.com/xqsit94/cc-statusline/cmd"
+	"github.com/xqsit94/cc-statusline/internal/style"
 )
 
-func main() { os.Exit(run(os.Args[1:])) }
+func main() { os.Exit(run(os.Args[1:], style.Environ(os.Environ()))) }
 
 // run is separated from main only so its deferred recover can set the exit
 // code — os.Exit skips deferred functions, so main cannot both defer and exit.
@@ -24,12 +25,12 @@ func main() { os.Exit(run(os.Args[1:])) }
 // themselves, because only they hold the output buffer that has to be reset
 // before a fallback can be written. A panic that reaches here came from `init`,
 // `config`, or `doctor`, where failing loudly is correct.
-func run(args []string) (code int) {
+func run(args []string, env map[string]string) (code int) {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Fprintf(os.Stderr, "cc-statusline: internal error: %v\n", r)
 			code = 1
 		}
 	}()
-	return cmd.Main(args)
+	return cmd.Main(args, env)
 }

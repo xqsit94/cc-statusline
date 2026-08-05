@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | DRAFT (rev 5, post two adversarial rounds + one engineering review + outside voice + M0 measurement) |
+| **Status** | DRAFT (rev 6, post two adversarial rounds + one engineering review + outside voice + M0 measurement + M2 correction) |
 | **Version** | 0.1.0 |
 | **Date** | 2026-08-05 |
 | **Owner** | xqsit94 |
@@ -804,15 +804,51 @@ stdout is always a pipe. `termenv`'s default `ColorProfile()` calls
 of §6.3 resolves `truecolor`, hands hex values to Lipgloss, and emits **zero
 escape sequences**. It presents as "colors just don't work" with no error.
 
+**The fix below is not the one this section originally specified.** Rev 5 said:
+
 ```go
 r := lipgloss.NewRenderer(os.Stdout,
-    termenv.WithProfile(caps.Profile),
+    termenv.WithProfile(caps.Profile),   // ← silently ignored
     termenv.WithTTY(true),
 )
 ```
 
-`lipgloss.ColorProfile()` and the package-level default renderer are **prohibited
-codebase-wide**.
+Measured against lipgloss v1.1.0 at M2, `WithProfile` has **no effect**.
+It configures the termenv `Output`; Lipgloss keeps its *own* profile field,
+initialised lazily, and never reads the one on the `Output` it was handed. Every
+profile therefore emitted 24-bit colour:
+
+| profile passed | emitted | correct |
+|---|---|---|
+| `termenv.Ascii` | `\x1b[38;2;203;166;247m` | *(nothing)* |
+| `termenv.ANSI` | `\x1b[38;2;203;166;247m` | `\x1b[95m` |
+| `termenv.ANSI256` | `\x1b[38;2;203;166;247m` | `\x1b[38;5;183m` |
+| `termenv.TrueColor` | `\x1b[38;2;203;166;247m` | correct, by accident |
+
+That is worse than the bug this section exists to prevent. §6.3's entire
+resolution would have been computed and discarded: `NO_COLOR=1` and `TERM=dumb`
+would both have emitted colour, and a 16-colour terminal would have received
+sequences it cannot render. The original wording passed three adversarial
+reviews because it is the construction the termenv documentation implies.
+
+The working form sets Lipgloss's own field explicitly:
+
+```go
+r := lipgloss.NewRenderer(w, termenv.WithTTY(true))
+r.SetColorProfile(caps.Profile)          // ← the actual control
+```
+
+`SetColorProfile` is necessary and sufficient. `WithTTY(true)` is retained
+because it disables the lazy `isatty()` detection rather than overriding its
+result — it is the guard that stops a future refactor, or a Lipgloss release
+that restores lazy initialisation, from silently reintroducing the original
+trap on a pipe.
+
+`lipgloss.ColorProfile()` and the package-level default renderer remain
+**prohibited codebase-wide**. Two tests hold this in place, because the failure
+is invisible in both directions: `TestColorSurvivesAPipe` (escapes are emitted
+when stdout is not a terminal) and `TestProfileIsHonoured` (the emitted escapes
+match the resolved profile, and `none` emits nothing).
 
 ---
 
@@ -1191,7 +1227,7 @@ is driven by config concepts), and the README moved to M6 with the first release
 |---|---|---|
 | ~~**M0 Spike**~~ **DONE** | `capture` + `report` in `internal/spike`. 35 payloads. | ✅ §3.1.1 answered. Residual: C-4 (compaction point), C-5 (200k + startup) |
 | ~~**M1 Skeleton**~~ **DONE** | Module, payload structs, `(value, ok)` accessors, key diff, buffered output + recover contract, `render` / `capture` / `version` | ✅ 12 hostile inputs render a fallback line and exit 0; the recover is exercised by an injected panic |
-| **M2 Render core** | Segment interface, 8 segments, `gitinfo` HEAD reader, plain joining, `Capabilities` struct, **§6.5 forced-TTY renderer** | Three states render in color *through a pipe* |
+| ~~**M2 Render core**~~ **DONE** | Segment interface, 8 segments, `gitinfo` HEAD reader, plain joining, `Capabilities` struct, **§6.5 forced-TTY renderer** | ✅ All four §5.1 states byte-identical; colour survives a pipe at every profile |
 | **M3 Config + polish** | TOML schema, XDG resolution, env overlay, validation, 2 presets, gradient, glyph sets, powerline, go-runewidth, drop→truncate→clip | All four reference states match plain goldens |
 | **M4 Visual gate** | §9.4 manual pass across 4 terminals × 2 locales × 4 capability sets | Screenshots in the PR; glyphs and stops locked |
 | **M5 Install** | `init`, `uninstall`, `doctor`, `version`, sjson + comment refusal, GoReleaser, release workflow, `install.sh` + checksums, **README** | Clean machine, no Go, installs via curl and passes `env -i` |
@@ -1257,6 +1293,21 @@ for fill and ramp, `p_shown` for the number and the bands — because §5.5 and
 §5.7 each said `pct` without either saying where it came from. Two further
 "corrections" were claimed and then withdrawn on checking; §3.1.1 records which
 and why.
+
+**M2 (rev 6)** found that §6.5's prescribed fix does not work. `termenv.WithProfile`
+is silently ignored by Lipgloss, so the profile §6.3 resolves was discarded and
+every terminal received 24-bit colour — meaning `NO_COLOR` and `TERM=dumb` would
+both have emitted colour. §6.5 now specifies `SetColorProfile` and shows the
+measured table. The section had survived three adversarial reviews because the
+broken form is the construction termenv's own documentation implies; only
+running it against all four profiles exposed it.
+
+Two smaller corrections came with it. Powerline is now suppressed under ASCII
+regardless of configuration, since honouring it would emit U+E0B0 into a
+terminal the user has just declared incapable of Unicode. And `git.branch_max_len`
+truncation moved out of `gitinfo` into the branch segment, because the ellipsis
+is a glyph — `.` under ASCII — and a package that reads files has no business
+knowing that.
 
 The analysis itself had to be rewritten mid-flight. An implied-denominator
 method that assumed an exact percentage read wild inconsistency into data that

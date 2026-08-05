@@ -36,7 +36,7 @@ type capture struct {
 // A write failure is swallowed: PRD §4.1 requires that capture can never
 // affect the render or the exit code, and a status line that vanishes because
 // a cache directory is read-only would be a poor trade for a diagnostic.
-func Capture(args []string, stdin io.Reader, stdout io.Writer) int {
+func Capture(args []string, env map[string]string, stdin io.Reader, stdout io.Writer) int {
 	raw, _ := io.ReadAll(io.LimitReader(stdin, 4<<20))
 
 	rec := capture{
@@ -67,7 +67,7 @@ func Capture(args []string, stdin io.Reader, stdout io.Writer) int {
 		}
 	}
 
-	return Render(nil, bytes.NewReader(raw), stdout)
+	return Render(nil, env, bytes.NewReader(raw), stdout)
 }
 
 // DefaultCapturePath is $XDG_CACHE_HOME/cc-statusline/last-payload.json.
