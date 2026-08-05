@@ -47,17 +47,23 @@ and `/review` can see what was deferred without reading a 1,300-line spec.
 
 ## M0 spike — installed, leave it running
 
-`~/.local/bin/cc-statusline-spike` is wired into `~/.claude/settings.json` as a
-passthrough in front of `~/.claude/statusline.sh`, so the existing status line is
-unchanged while payloads accumulate in `~/.cache/cc-statusline/spike`. It stays
-until C-4 and C-5 close.
+`~/.local/bin/cc-statusline` is wired into `~/.claude/settings.json` as
+`spike capture -- bash "$HOME/.claude/statusline.sh"`: a passthrough in front of
+the existing status line, so nothing on screen changes while payloads accumulate
+in `~/.cache/cc-statusline/spike`. It stays until C-4 and C-5 close.
 
-- Read the findings: `cc-statusline-spike report`
-- Rebuild after edits: `go build -o ~/.local/bin/cc-statusline-spike ./cmd/cc-statusline`
+- Read the findings: `cc-statusline spike report`
+- Rebuild after edits: `go build -o ~/.local/bin/cc-statusline .`
 - Remove it: restore `~/.claude/settings.json.pre-m0.bak`
-- Delete at M1: `internal/spike/` and its `cmd` cases go when `internal/payload`
-  lands. Carry `capture_test.go`'s §3.3 assertions forward; they are the only
-  part of the spike that is not throwaway.
+- Delete when C-4 and C-5 close: `internal/spike/`, `cmd/spike.go`, and one case
+  in `cmd.Main`. Nothing else depends on it — the report already runs through
+  `payload.FlattenKeys`, and `capture_test.go`'s §3.3 assertions are carried
+  forward in `cmd/render_test.go`.
+
+> `spike capture` and `capture` are deliberately different. The first passes the
+> payload through to another status line command and forwards its output; the
+> second renders our own. Swapping one for the other silently changes what is on
+> screen, which is why they are not the same subcommand.
 
 ## Implementation tasks
 

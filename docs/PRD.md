@@ -1190,7 +1190,7 @@ is driven by config concepts), and the README moved to M6 with the first release
 | Phase | Scope | Exit criterion |
 |---|---|---|
 | ~~**M0 Spike**~~ **DONE** | `capture` + `report` in `internal/spike`. 35 payloads. | ✅ §3.1.1 answered. Residual: C-4 (compaction point), C-5 (200k + startup) |
-| **M1 Skeleton** | Module, payload structs, `(value, ok)` accessors, key diff, buffered output + recover contract | `{}` and malformed input render a fallback line, exit 0 |
+| ~~**M1 Skeleton**~~ **DONE** | Module, payload structs, `(value, ok)` accessors, key diff, buffered output + recover contract, `render` / `capture` / `version` | ✅ 12 hostile inputs render a fallback line and exit 0; the recover is exercised by an injected panic |
 | **M2 Render core** | Segment interface, 8 segments, `gitinfo` HEAD reader, plain joining, `Capabilities` struct, **§6.5 forced-TTY renderer** | Three states render in color *through a pipe* |
 | **M3 Config + polish** | TOML schema, XDG resolution, env overlay, validation, 2 presets, gradient, glyph sets, powerline, go-runewidth, drop→truncate→clip | All four reference states match plain goldens |
 | **M4 Visual gate** | §9.4 manual pass across 4 terminals × 2 locales × 4 capability sets | Screenshots in the PR; glyphs and stops locked |

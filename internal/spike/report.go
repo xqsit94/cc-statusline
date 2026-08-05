@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/xqsit94/cc-statusline/internal/payload"
 )
 
 // expectedKeys is the payload contract as docs/PRD.md §3.1 asserts it — both
@@ -92,6 +94,7 @@ func Report(w io.Writer) int {
 	}
 
 	var docs []doc
+	var raws [][]byte
 	var malformed int
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
@@ -108,6 +111,7 @@ func Report(w io.Writer) int {
 			continue
 		}
 		docs = append(docs, d)
+		raws = append(raws, b)
 	}
 
 	if len(docs) == 0 {
@@ -126,18 +130,23 @@ func Report(w io.Writer) int {
 	fmt.Fprintf(w, "versions   %s\n", strings.Join(distinct(docs, "version"), ", "))
 	fmt.Fprintf(w, "models     %s\n", strings.Join(distinct(docs, "model.display_name"), ", "))
 
-	reportContract(w, docs)
+	reportContract(w, docs, raws)
 	reportDenominator(w, docs)
 	return 0
 }
 
 // ── Question 1: do the fields exist with the shapes claimed? ───────────────
 
-func reportContract(w io.Writer, docs []doc) {
+func reportContract(w io.Writer, docs []doc, raws [][]byte) {
 	stats := map[string]*keyStat{}
-	for _, d := range docs {
-		observed := map[string]string{}
-		flatten("", map[string]any(d), observed)
+	for i, d := range docs {
+		// internal/payload owns the flattener now. Running the spike's report
+		// through it exercises the real implementation against every payload
+		// on disk, which is a better test than any fixture.
+		observed, err := payload.FlattenKeys(raws[i])
+		if err != nil {
+			continue
+		}
 		for path, kind := range observed {
 			st := stats[path]
 			if st == nil {
@@ -450,40 +459,6 @@ func verdict(w io.Writer, lo, hi float64, matches, checks int, integral bool, ro
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────
-
-// flatten records every leaf path and its JSON type. Arrays are recorded at the
-// array path and recursed into via a "[]" element so a shape change inside a
-// list still shows up.
-func flatten(prefix string, v any, out map[string]string) {
-	switch t := v.(type) {
-	case map[string]any:
-		if prefix != "" && len(t) == 0 {
-			out[prefix] = "object(empty)"
-		}
-		for k, child := range t {
-			path := k
-			if prefix != "" {
-				path = prefix + "." + k
-			}
-			flatten(path, child, out)
-		}
-	case []any:
-		out[prefix] = fmt.Sprintf("array[%d]", len(t))
-		if len(t) > 0 {
-			flatten(prefix+"[]", t[0], out)
-		}
-	case string:
-		out[prefix] = "string"
-	case float64:
-		out[prefix] = "number"
-	case bool:
-		out[prefix] = "bool"
-	case nil:
-		out[prefix] = "null"
-	default:
-		out[prefix] = fmt.Sprintf("%T", v)
-	}
-}
 
 func sampleOf(d doc, path string) string {
 	v, ok := d.at(strings.ReplaceAll(path, "[]", ""))
