@@ -71,9 +71,9 @@ on its output is a signature on the shipped bytes — `TestPreviewShowsWhatThe`
 
 `docs/M6-release.md` is the checklist and the reasoning. The four blockers:
 
-- [x] **`LICENSE`** — MIT, copyright `xqsit94`. Change the holder to your legal
-      name before the tag if you want it there; afterwards it is on record in
-      every copy anyone has.
+- [x] **`LICENSE`** — MIT, copyright Manikandan B. Set to the legal name rather
+      than the handle before the tag, which was the last moment it was cheap to
+      change: it ships inside all four archives.
 - [x] **No git remote.** Closed — `origin` is `git@github.com:xqsit94/cc-statusline.git`
       and `main` is pushed. The first CI run against it failed and was worth the
       whole exercise: `goreleaser check` caught a `checksums:`/`checksum:`

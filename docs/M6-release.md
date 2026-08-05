@@ -14,7 +14,7 @@ has it installed**. Only the first is code. This document is the rest.
 
 | # | Blocker | Whose call |
 |---|---|---|
-| ~~B-1~~ | ~~No `LICENSE` file.~~ **Done** — MIT, copyright `xqsit94`. If you want your legal name on it rather than the handle, change it before the tag; after publication the holder is on record in every copy anyone has. | — |
+| ~~B-1~~ | ~~No `LICENSE` file.~~ **Done** — MIT, copyright Manikandan B, set to the legal name before the tag. Personal project, so the holder is the individual and not `sirine.ai`. | — |
 | ~~B-2~~ | ~~There is no git remote.~~ **Done** — `origin` is `git@github.com:xqsit94/cc-statusline.git`, `main` is pushed, CI is green on ubuntu and macos. See §0.1. | — |
 | B-3 | The M4 visual gate has not been run by a human. `docs/M4-visual-gate.md` is the checklist. | **Yours** — see §1 |
 | B-4 | C-4 and C-5 are unmeasured, so §5.4's thresholds are guesses. | Time — see §2 |

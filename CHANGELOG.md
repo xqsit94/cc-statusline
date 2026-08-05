@@ -1,9 +1,15 @@
 # Changelog
 
-## Unreleased — v0.1.0 candidate
+## v0.1.0 — 2026-08-05
 
-The first release-shaped state. Not yet tagged; `docs/M6-release.md` lists what
-is still blocking.
+The first release. `0.1.0` rather than `1.0.0` deliberately: the interface most
+likely to move is §7.2's config schema, and pre-1.0 is the honest signal that it
+might. The payload contract is Claude Code's, not ours, which is why §3.1.2's
+drift detection exists at all.
+
+Tagged with PRD §11's second exit criterion still open — one non-you user has it
+installed — because that one cannot be satisfied before a release exists. The
+M4 visual gate's human half is also outstanding; see Known gaps.
 
 ### Added
 
@@ -63,8 +69,18 @@ is still blocking.
 
 - No release signing. `checksums.txt` is integrity, not authenticity — PRD §13.
 - Windows is unsupported — PRD §13.
-- The M4 visual gate has not been run by a human; C-2, C-6 and C-7 are open.
-- §5.4's thresholds are guesses until C-4 is measured against a real compaction.
+- **The M4 visual gate's human half has not been run.** Its decidable half is
+  `make gate-check` and passes in CI, but nothing in it renders to a screen.
+  Three questions are therefore open at v0.1.0 rather than closed before it:
+  whether the Nerd Font glyphs draw as glyphs (§12 Q1), whether the
+  fill-relative gradient is legible and reads as a level rather than a rainbow
+  (C-2), and whether the bare Powerline arrow reads as intentional (C-6). If
+  C-2 resolves the other way, §5.5 switches to a solid `ramp(pct/100)` and the
+  most visible thing in the product changes in a later release.
+- `width_reserve = 12` is unmeasured (C-7). It can only be read off Claude Code's
+  own rendering — `docs/M4-visual-gate.md` §4.
+- §5.4's thresholds are guesses until C-4 is measured against a real compaction,
+  and the 200k window and null-percentage startup state are unexercised (C-5).
 
 ---
 
