@@ -275,8 +275,47 @@ looking at a terminal is the exact decision this gate exists to prevent.
 
 ## 6. Findings
 
-Fill in, attach screenshots under `docs/gate/`, and record the result in PRD
-§14's review history.
+### 6.0 The decidable half — run and passing
+
+`scripts/gate-check.py` runs every part of this checklist a machine can answer,
+so the human pass is spent only on what needs eyes. Run it with the binary
+built:
+
+```sh
+make build && python3 scripts/gate-check.py
+```
+
+Passing as of `cbad960`, on ghostty (`TERM=xterm-ghostty`, `COLORTERM=truecolor`,
+`LANG=en_IN`, `COLUMNS` unset):
+
+| check | result |
+|---|---|
+| §3.1 ASCII set is pure 7-bit, SGR escapes included | pass — no byte above `0x7F` in any `--icons ascii` line |
+| §3.3 `NO_COLOR=1` renders byte-identically to `--plain` | pass |
+| §3.3 neither emits any SGR escape | pass |
+| §3.2 no line claims more than the budget, at 40/80/120/200 | pass |
+| §3.2 exit 0 and empty stderr at every width | pass |
+| §3.4 `--ambiguous 1` and `2` differ, and `2` swaps the empty cell to `▒` | pass |
+
+Two notes from the run:
+
+- **`--plain` and `NO_COLOR=1` differ by one word** in the harness's capability
+  report — `colour=truecolor` versus `colour=none` — and that is correct, not a
+  bug. `--plain` is an override applied on a colour terminal; `NO_COLOR`
+  resolves the capability itself. The rendered lines are identical, which is
+  what §3.3 is actually asserting. `gate-check.py` compares under `--bare` for
+  this reason.
+- **`danger-92` claims 64 cells at width 80 and 70 at width 120.** It is losing
+  a segment at 80, which is §5.1's blockquote behaving as documented and is the
+  same two cells C-7 is about.
+
+**What this does not do.** It never renders to a screen. Every check above is
+about bytes, and the three questions this gate exists for — does `U+F06A9` draw
+a robot or a box, is the ramp legible on *this* background, does the bare arrow
+read as intentional — are untouched by it. A green run here is a green run on
+the half that was never in doubt.
+
+### 6.1 The human half — outstanding
 
 | terminal | version | OS | 40 | 120 | 200 | ASCII | Unicode | NerdFont | Powerline | ambiguous | notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|

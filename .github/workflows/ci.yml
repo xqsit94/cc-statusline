@@ -67,6 +67,13 @@ jobs:
           out=$(echo '{"model":{"display_name":"Opus"}}' | NO_COLOR=1 /tmp/cc-statusline render | cat -v)
           case "$out" in *'^['*) echo "::error::escapes under NO_COLOR: $out"; exit 1 ;; esac
 
+      # The decidable half of §9.4's manual gate: ASCII purity, NO_COLOR ≡
+      # --plain, nothing over budget at any width. It never renders to a screen,
+      # so it does not substitute for the human pass — it stops the mechanical
+      # half from rotting between passes, which is the half nobody re-checks.
+      - name: visual gate — decidable checks
+        run: make gate-check
+
   goreleaser-config:
     # Catches a broken .goreleaser.yaml at push time rather than at tag time,
     # when the fix costs a re-tag.

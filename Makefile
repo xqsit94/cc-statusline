@@ -19,7 +19,7 @@ LDFLAGS := -s -w \
 	-X $(PKG)/cmd.commit=$(COMMIT) \
 	-X $(PKG)/cmd.date=$(DATE)
 
-.PHONY: all build test vet fmt fmt-check check install uninstall gate probe bench clean release-dry
+.PHONY: all build test vet fmt fmt-check check install uninstall gate gate-check probe bench clean release-dry
 
 all: check build
 
@@ -60,6 +60,13 @@ uninstall:
 # and never that your terminal agrees. See docs/M4-visual-gate.md.
 gate: build
 	$(OUT) preview --matrix
+
+# The part of the gate a machine can answer: ASCII purity, NO_COLOR ≡ --plain,
+# nothing over budget at any width, and the ambiguous-width flag doing something.
+# Passing this is not passing the gate — it never renders to a screen. It just
+# means the human pass can be spent on glyphs and colour.
+gate-check: build
+	python3 scripts/gate-check.py
 
 # C-7: install this as the statusLine command and read width_reserve off
 # Claude Code's own rendering. docs/M4-visual-gate.md §4.
