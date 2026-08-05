@@ -44,6 +44,20 @@ is still blocking.
   the current set instead, and removed once the problem is fixed.
 - `init` shell-quotes the binary path. Claude Code runs the command through a
   shell, and a `go install` on macOS can land it under a path with a space in it.
+- **`.goreleaser.yaml` had never been parsed.** The checksum block was spelled
+  `checksums:`; GoReleaser rejects unknown fields, so no release could have been
+  built from the config at all. Caught by `goreleaser check` on the first CI run
+  against the published remote — which is the run before the tag, not after it.
+- **Two `internal/settings` tests only passed on Linux.** They compared paths
+  against a raw `t.TempDir()`, but on macOS that sits under `/var/folders` and
+  `/var` is a symlink to `/private/var`, so `EvalSymlinks` resolved further than
+  the assertion expected. The behaviour was correct — resolving the last link is
+  what keeps `Write` from replacing a dotfiles symlink with a regular file — so
+  the fix was to the tests, which now resolve up front.
+- Five dependencies this code imports directly were marked `// indirect` in
+  `go.mod`. `go mod tidy` runs as a release `before` hook, so leaving it stale
+  would have dirtied the tree mid-release, and GoReleaser refuses to build from
+  a dirty tree.
 
 ### Known gaps
 

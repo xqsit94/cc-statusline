@@ -15,12 +15,31 @@ has it installed**. Only the first is code. This document is the rest.
 | # | Blocker | Whose call |
 |---|---|---|
 | ~~B-1~~ | ~~No `LICENSE` file.~~ **Done** — MIT, copyright `xqsit94`. If you want your legal name on it rather than the handle, change it before the tag; after publication the holder is on record in every copy anyone has. | — |
-| B-2 | There is no git remote. `git remote -v` is empty, so there is nothing to push a tag to and no Releases page for `install.sh` to fetch from. | **Yours** |
+| ~~B-2~~ | ~~There is no git remote.~~ **Done** — `origin` is `git@github.com:xqsit94/cc-statusline.git`, `main` is pushed, CI is green on ubuntu and macos. See §0.1. | — |
 | B-3 | The M4 visual gate has not been run by a human. `docs/M4-visual-gate.md` is the checklist. | **Yours** — see §1 |
 | B-4 | C-4 and C-5 are unmeasured, so §5.4's thresholds are guesses. | Time — see §2 |
 
-B-2 is five minutes. B-3 is about twenty. B-4 is a week of use, which is what §11
-was asking for when it wrote "use it yourself for a week".
+B-3 is about twenty minutes. B-4 is a week of use, which is what §11 was asking
+for when it wrote "use it yourself for a week".
+
+### 0.1 What the first real CI run was worth
+
+Both findings were invisible from a Linux workstation, which is the argument for
+having pushed before tagging rather than after:
+
+- **`goreleaser check` failed.** The checksum block was spelled `checksums:`.
+  GoReleaser rejects unknown fields outright, so the config never parsed and
+  **no release could have been produced from it at all**. Discovering this from
+  a tag push means discovering it after the tag exists.
+- **`macos-latest` failed two tests.** `t.TempDir()` is under `/var/folders` on
+  a Mac and `/var` is a symlink to `/private/var`, so `Read`'s `EvalSymlinks`
+  resolved further than the assertions expected. The product was right; the
+  tests carried a Linux-only assumption.
+
+Fixed in `cbad960`. Rehearsed since with `goreleaser release --snapshot`: four
+archives, `checksums.txt`, `install.sh`'s extraction `sed` run against the real
+file (match), the Linux archive unpacked, `ldd` confirming a static binary, and
+a line rendered under `env -i`.
 
 ---
 
@@ -67,7 +86,7 @@ Record each answer in PRD §14.1 with a reason, not just a verdict.
 
 ## 3. Tagging
 
-Once B-1 through B-3 are closed:
+Once B-3 is closed:
 
 ```sh
 make check                     # gofmt, vet, tests
@@ -75,6 +94,11 @@ make release-dry               # builds every artefact locally, publishes nothin
 git tag -a v0.1.0 -m "…"
 git push origin v0.1.0
 ```
+
+`make release-dry` needs GoReleaser on `PATH`; `go install
+github.com/goreleaser/goreleaser/v2@latest` puts it in `$(go env GOPATH)/bin`.
+Run it from a clean tree — GoReleaser refuses to build from a dirty one, and its
+`go mod tidy` before-hook can itself dirty the tree if `go.mod` is stale.
 
 `.github/workflows/release.yml` takes it from there: GoReleaser runs the test
 suite again as a `before` hook, builds `linux/darwin × amd64/arm64`, publishes

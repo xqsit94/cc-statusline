@@ -74,17 +74,22 @@ on its output is a signature on the shipped bytes — `TestPreviewShowsWhatThe`
 - [x] **`LICENSE`** — MIT, copyright `xqsit94`. Change the holder to your legal
       name before the tag if you want it there; afterwards it is on record in
       every copy anyone has.
-- [ ] **No git remote.** `git remote -v` is empty — nowhere to push a tag, and
-      no Releases page for `install.sh` to fetch from.
+- [x] **No git remote.** Closed — `origin` is `git@github.com:xqsit94/cc-statusline.git`
+      and `main` is pushed. The first CI run against it failed and was worth the
+      whole exercise: `goreleaser check` caught a `checksums:`/`checksum:`
+      misspelling that made the release config unparseable, and `macos-latest`
+      caught two path assertions that only hold on Linux. Fixed in `cbad960`;
+      all three jobs green.
 - [ ] **The M4 visual gate is unrun.** Two of its findings (C-2, C-6) can change
       what ships, and both are much cheaper before a tag than after one.
 - [ ] **C-4 and C-5 unmeasured**, so §5.4's thresholds are still guesses. This is
       the week of real use §11 asked for; §12 Q5 (one line or two) resolves in
       the same week.
+- [ ] **One non-you user.** M6's second exit criterion, and the one that cannot
+      be satisfied before the tag exists.
 
-Also unset: the repository has no git identity, so every commit so far needed
-`git -c user.name=… -c user.email=…`. Worth configuring before a tag carries
-your name.
+Git identity is now set repo-locally (`xqsit94 <manikandan@sirine.ai>`), so
+`git tag -a` will work without the `-c` flags every commit needed until now.
 
 ## Unanswered strategic question
 

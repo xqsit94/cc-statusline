@@ -1475,7 +1475,7 @@ is driven by config concepts), and the README moved to M6 with the first release
 | ~~**M3 Config + polish**~~ **DONE** | TOML schema, XDG resolution, env overlay, validation, 2 presets, gradient, glyph sets, powerline, go-runewidth, drop→truncate→clip | ✅ All four reference states match plain goldens across 3 icon sets × 2 separator styles × 4 widths + a CJK row; no line exceeds `available` at any width from 10 to 200 |
 | **M4 Visual gate** — **harness DONE, human pass outstanding** | `cc-statusline preview` + `--probe`, `internal/refstate`, `docs/M4-visual-gate.md`. §9.4's terminal and locale axes corrected. | Harness: ✅ preview and render produce identical bytes from the same fixture; the width rule is ASCII-only at every length. Human: screenshots in `docs/gate/`, C-2 / C-6 / C-7 and §12 Q1/Q2 resolved with reasons |
 | ~~**M5 Install**~~ **DONE** | `init`, `uninstall`, `doctor`, `internal/settings`, the settings.json corpus, GoReleaser, CI + release workflow, `install.sh` + checksums, `Makefile`, **README**. C-1 closed; §10.2's step order and §7.1's last-error behaviour corrected. | ✅ install/uninstall round-trips byte-identical on every corpus file; a commented settings.json is declined rather than silently no-op'd; `init` twice makes no second backup; 17-digit integers and key order survive |
-| **M6 Release v0.1** — **prepared, blocked on three things** | Tag, publish, use it yourself for a week. `CHANGELOG.md`, `LICENSE` (MIT) and `docs/M6-release.md` written. | Blocked: no git remote, the M4 gate unrun, C-4/C-5 unmeasured. Then: one non-you user has it installed |
+| **M6 Release v0.1** — **prepared, blocked on two things** | Tag, publish, use it yourself for a week. `CHANGELOG.md`, `LICENSE` (MIT) and `docs/M6-release.md` written. Remote published, CI green on ubuntu + macos, release rehearsed with `--snapshot`. | Blocked: the M4 gate unrun, C-4/C-5 unmeasured. Then: one non-you user has it installed |
 | **M7 Wizard** | Bubble Tea `config`, live preview, capability toggles, width slider | Full configuration without editing TOML |
 | **M8 Hardening** | Full golden tiers, escape table, install integration corpus, fuzz | All §9.3 criteria pass |
 
@@ -1526,7 +1526,31 @@ informed by use rather than a bet placed before it.
 
 Two adversarial rounds (7/10, then 8/10), one engineering review, one outside
 voice. Rev 4 folds all of it. Rev 5 folds M0's measurements; rev 6, M2's; rev 7,
-M3's; rev 8, M4's; rev 9, M5's.
+M3's; rev 8, M4's; rev 9, M5's; rev 10, M6's first CI run.
+
+**M6 (rev 10)** published the remote, and the first CI run on real hardware
+failed. Both findings were unreachable from the workstation this was built on,
+which is the whole argument for pushing before tagging rather than after.
+
+1. **The release config had never been parsed.** `.goreleaser.yaml` spelled the
+   checksum block `checksums:`. GoReleaser rejects unknown fields outright, so
+   no release could have been built from it — not a degraded release, none.
+   Every local check up to that point had been a check of Go code, and the
+   release configuration is not Go code. `goreleaser check` in CI was added on
+   the reasoning that a config only exercised by tagging is a config exercised
+   once, in the worst possible place; it earned its keep on its first run.
+
+2. **Two tests encoded a Linux-only assumption about temp paths.** `t.TempDir()`
+   is under `/var/folders` on macOS and `/var` is a symlink to `/private/var`,
+   so `EvalSymlinks` — the entire reason `settings.File` has a `Target` distinct
+   from `Path` — resolved further than the assertions expected. The product was
+   correct and the tests were wrong, which is the harder version of this bug to
+   notice: a green suite on one platform is evidence about that platform only.
+   §9.3's corpus tests *content* portably and said nothing about paths.
+
+Neither is a design error, which is why they are recorded here rather than as
+corrections above. They are both the same practical point: the parts of a
+release that are not the program get tested last, and shipping is when.
 
 **M5 (rev 9)** settled C-1 and found three things this document had specified
 wrongly. All three are the same shape: a rule that is right about its conclusion
