@@ -1,0 +1,75 @@
+--- ascii plain 40
+* Claude Opus 4.6 | 0% 1M
+claude-temp
+--- ascii plain 80
+* Claude Opus 4.6 | ---------- 0% 1M | $0.00
+claude-temp
+--- ascii plain 120
+* Claude Opus 4.6 | ---------- 0% 1M | $0.00
+claude-temp
+--- ascii plain 200
+* Claude Opus 4.6 | ---------- 0% 1M | $0.00
+claude-temp
+--- ascii powerline 40
+* Claude Opus 4.6 | 0% 1M
+claude-temp
+--- ascii powerline 80
+* Claude Opus 4.6 | ---------- 0% 1M | $0.00
+claude-temp
+--- ascii powerline 120
+* Claude Opus 4.6 | ---------- 0% 1M | $0.00
+claude-temp
+--- ascii powerline 200
+* Claude Opus 4.6 | ---------- 0% 1M | $0.00
+claude-temp
+--- unicode plain 40
+◆ Claude Opus 4.6 │ 0% 1M
+claude-temp
+--- unicode plain 80
+◆ Claude Opus 4.6 │ ░░░░░░░░░░ 0% 1M │ $0.00
+claude-temp
+--- unicode plain 120
+◆ Claude Opus 4.6 │ ░░░░░░░░░░ 0% 1M │ $0.00
+claude-temp
+--- unicode plain 200
+◆ Claude Opus 4.6 │ ░░░░░░░░░░ 0% 1M │ $0.00
+claude-temp
+--- unicode powerline 40
+◆ Claude Opus 4.6 │ 0% 1M
+claude-temp
+--- unicode powerline 80
+◆ Claude Opus 4.6 │ ░░░░░░░░░░ 0% 1M │ $0.00
+claude-temp
+--- unicode powerline 120
+◆ Claude Opus 4.6 │ ░░░░░░░░░░ 0% 1M │ $0.00
+claude-temp
+--- unicode powerline 200
+◆ Claude Opus 4.6 │ ░░░░░░░░░░ 0% 1M │ $0.00
+claude-temp
+--- nerdfont plain 40
+󰚩 Claude Opus 4.6  0% 1M
+claude-temp
+--- nerdfont plain 80
+󰚩 Claude Opus 4.6  ░░░░░░░░░░ 0% 1M  $0.00
+claude-temp
+--- nerdfont plain 120
+󰚩 Claude Opus 4.6  ░░░░░░░░░░ 0% 1M  $0.00
+claude-temp
+--- nerdfont plain 200
+󰚩 Claude Opus 4.6  ░░░░░░░░░░ 0% 1M  $0.00
+claude-temp
+--- nerdfont powerline 40
+󰚩 Claude Opus 4.6  0% 1M
+claude-temp
+--- nerdfont powerline 80
+󰚩 Claude Opus 4.6  ░░░░░░░░░░ 0% 1M  $0.00
+claude-temp
+--- nerdfont powerline 120
+󰚩 Claude Opus 4.6  ░░░░░░░░░░ 0% 1M  $0.00
+claude-temp
+--- nerdfont powerline 200
+󰚩 Claude Opus 4.6  ░░░░░░░░░░ 0% 1M  $0.00
+claude-temp
+--- unicode plain 80 LANG=ja_JP.UTF-8
+◆ Claude Opus 4.6 │ ▒▒▒▒▒▒▒▒▒▒ 0% 1M │ $0.00
+claude-temp

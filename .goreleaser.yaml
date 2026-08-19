@@ -1,0 +1,76 @@
+version: 2
+
+project_name: cc-statusline
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: cc-statusline
+    main: .
+    binary: cc-statusline
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/xqsit94/cc-statusline/cmd.version={{.Version}}
+      - -X github.com/xqsit94/cc-statusline/cmd.commit={{.ShortCommit}}
+      - -X github.com/xqsit94/cc-statusline/cmd.date={{.Date}}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: default
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+    files:
+      - README.md
+      - LICENSE*
+      - config/*.toml
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+release:
+  draft: false
+  prerelease: auto
+  footer: |
+    ## Install
+
+    ```sh
+    curl -fsSL https://raw.githubusercontent.com/xqsit94/cc-statusline/main/install.sh | sh
+    cc-statusline init
+    ```
+
+    Or, with a Go toolchain:
+
+    ```sh
+    go install github.com/xqsit94/cc-statusline@{{ .Tag }}
+    cc-statusline init
+    ```
+
+    Verify a download by hand with `checksums.txt`. Note that this is an
+    integrity check, not an authenticity one — see the README.

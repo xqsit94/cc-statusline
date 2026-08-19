@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "::error::gofmt needed on:"; echo "$unformatted"; exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: test
+        run: go test ./... -count=1
+
+      - name: race
+        run: go test ./... -count=1 -race
+
+      - name: report the p99
+        run: |
+          go test ./cmd/ -run TestRenderProcessBudget -count=1 -v \
+            | sed -n 's/.*p99_test.go:[0-9]*: /::notice::/p'
+
+      - name: render under env -i
+        run: |
+          go build -o /tmp/cc-statusline .
+          echo '{"model":{"display_name":"Opus"}}' | env -i /tmp/cc-statusline render
+          out=$(echo '{}' | env -i /tmp/cc-statusline render)
+          test -n "$out" || { echo "::error::empty output under env -i"; exit 1; }
+
+      - name: failure contract
+        run: |
+          for input in '' '{}' 'null' 'not json at all' '[1,2,3]'; do
+            err=$(printf '%s' "$input" | /tmp/cc-statusline render 2>&1 >/dev/null) || {
+              echo "::error::non-zero exit for input: $input"; exit 1; }
+            test -z "$err" || { echo "::error::stderr output for input: $input -> $err"; exit 1; }
+          done
+
+      - name: NO_COLOR emits no escapes
+        run: |
+          out=$(echo '{"model":{"display_name":"Opus"}}' | NO_COLOR=1 /tmp/cc-statusline render | cat -v)
+          case "$out" in *'^['*) echo "::error::escapes under NO_COLOR: $out"; exit 1 ;; esac
+
+      - name: fuzz
+        if: matrix.os == 'ubuntu-latest'
+        run: go test ./cmd/ -run '^$' -fuzz FuzzRender -fuzztime 60s
+
+      - name: upload fuzz failures
+        if: failure() && matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-corpus
+          path: cmd/testdata/fuzz/
+          if-no-files-found: ignore
+
+  goreleaser-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: check

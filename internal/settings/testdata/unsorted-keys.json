@@ -1,0 +1,6 @@
+{
+  "theme": "dark",
+  "alwaysThinkingEnabled": true,
+  "cleanupPeriodDays": 30,
+  "backupEnabled": false
+}

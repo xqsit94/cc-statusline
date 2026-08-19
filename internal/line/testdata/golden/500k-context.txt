@@ -1,0 +1,75 @@
+--- ascii plain 40
+* Claude Opus 4.6 | 55% 500k
+> main | my-project
+--- ascii plain 80
+* Claude Opus 4.6 | ######---- 55% 500k | $4.75 | 5h:33% 7d:21%
+> main | +410/-96 | my-project
+--- ascii plain 120
+* Claude Opus 4.6 | ######---- 55% 500k | $4.75 | 25m | 5h:33% 7d:21%
+> main | +410/-96 | my-project
+--- ascii plain 200
+* Claude Opus 4.6 | ######---- 55% 500k | $4.75 | 25m | 5h:33% 7d:21%
+> main | +410/-96 | my-project
+--- ascii powerline 40
+* Claude Opus 4.6 | 55% 500k
+> main | my-project
+--- ascii powerline 80
+* Claude Opus 4.6 | ######---- 55% 500k | $4.75 | 5h:33% 7d:21%
+> main | +410/-96 | my-project
+--- ascii powerline 120
+* Claude Opus 4.6 | ######---- 55% 500k | $4.75 | 25m | 5h:33% 7d:21%
+> main | +410/-96 | my-project
+--- ascii powerline 200
+* Claude Opus 4.6 | ######---- 55% 500k | $4.75 | 25m | 5h:33% 7d:21%
+> main | +410/-96 | my-project
+--- unicode plain 40
+◆ Claude Opus 4.6 │ 55% 500k
+⎇ main │ my-project
+--- unicode plain 80
+◆ Claude Opus 4.6 │ ▓▓▓▓▓▓░░░░ 55% 500k │ $4.75 │ 5h:33% 7d:21%
+⎇ main │ +410/-96 │ my-project
+--- unicode plain 120
+◆ Claude Opus 4.6 │ ▓▓▓▓▓▓░░░░ 55% 500k │ $4.75 │ 25m │ 5h:33% 7d:21%
+⎇ main │ +410/-96 │ my-project
+--- unicode plain 200
+◆ Claude Opus 4.6 │ ▓▓▓▓▓▓░░░░ 55% 500k │ $4.75 │ 25m │ 5h:33% 7d:21%
+⎇ main │ +410/-96 │ my-project
+--- unicode powerline 40
+◆ Claude Opus 4.6 │ 55% 500k
+⎇ main │ my-project
+--- unicode powerline 80
+◆ Claude Opus 4.6 │ ▓▓▓▓▓▓░░░░ 55% 500k │ $4.75 │ 5h:33% 7d:21%
+⎇ main │ +410/-96 │ my-project
+--- unicode powerline 120
+◆ Claude Opus 4.6 │ ▓▓▓▓▓▓░░░░ 55% 500k │ $4.75 │ 25m │ 5h:33% 7d:21%
+⎇ main │ +410/-96 │ my-project
+--- unicode powerline 200
+◆ Claude Opus 4.6 │ ▓▓▓▓▓▓░░░░ 55% 500k │ $4.75 │ 25m │ 5h:33% 7d:21%
+⎇ main │ +410/-96 │ my-project
+--- nerdfont plain 40
+󰚩 Claude Opus 4.6  55% 500k
+ main  my-project
+--- nerdfont plain 80
+󰚩 Claude Opus 4.6  ▓▓▓▓▓▓░░░░ 55% 500k  $4.75  5h:33% 7d:21%
+ main  +410/-96  my-project
+--- nerdfont plain 120
+󰚩 Claude Opus 4.6  ▓▓▓▓▓▓░░░░ 55% 500k  $4.75  25m  5h:33% 7d:21%
+ main  +410/-96  my-project
+--- nerdfont plain 200
+󰚩 Claude Opus 4.6  ▓▓▓▓▓▓░░░░ 55% 500k  $4.75  25m  5h:33% 7d:21%
+ main  +410/-96  my-project
+--- nerdfont powerline 40
+󰚩 Claude Opus 4.6  55% 500k
+ main  my-project
+--- nerdfont powerline 80
+󰚩 Claude Opus 4.6  ▓▓▓▓▓▓░░░░ 55% 500k  $4.75  5h:33% 7d:21%
+ main  +410/-96  my-project
+--- nerdfont powerline 120
+󰚩 Claude Opus 4.6  ▓▓▓▓▓▓░░░░ 55% 500k  $4.75  25m  5h:33% 7d:21%
+ main  +410/-96  my-project
+--- nerdfont powerline 200
+󰚩 Claude Opus 4.6  ▓▓▓▓▓▓░░░░ 55% 500k  $4.75  25m  5h:33% 7d:21%
+ main  +410/-96  my-project
+--- unicode plain 80 LANG=ja_JP.UTF-8
+◆ Claude Opus 4.6 │ ▓▓▓▓▓▓▒▒▒▒ 55% 500k │ 5h:33% 7d:21%
+⎇ main │ +410/-96 │ my-project

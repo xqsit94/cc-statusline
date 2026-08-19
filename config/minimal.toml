@@ -1,0 +1,19 @@
+# cc-statusline — one line, nothing that moves on its own.
+
+[general]
+width_reserve = 12
+
+[bar]
+width = 8
+
+[git]
+branch_max_len = 16
+
+[context]
+show_size = "always"
+
+[[line]]
+segments = [
+  {name="context", drop=99}, {name="branch", drop=99},
+  {name="model", drop=6}, {name="cost", drop=4},
+]

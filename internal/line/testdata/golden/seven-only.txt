@@ -1,0 +1,75 @@
+--- ascii plain 40
+* Claude Opus 4.6 | #--- 19%
+> main | my-project
+--- ascii plain 80
+* Claude Opus 4.6 | ##-------- 19% | $0.62 | 4m | 7d:77%
+> main | +95/-12 | my-project
+--- ascii plain 120
+* Claude Opus 4.6 | ##-------- 19% | $0.62 | 4m | 7d:77%
+> main | +95/-12 | my-project
+--- ascii plain 200
+* Claude Opus 4.6 | ##-------- 19% | $0.62 | 4m | 7d:77%
+> main | +95/-12 | my-project
+--- ascii powerline 40
+* Claude Opus 4.6 | #--- 19%
+> main | my-project
+--- ascii powerline 80
+* Claude Opus 4.6 | ##-------- 19% | $0.62 | 4m | 7d:77%
+> main | +95/-12 | my-project
+--- ascii powerline 120
+* Claude Opus 4.6 | ##-------- 19% | $0.62 | 4m | 7d:77%
+> main | +95/-12 | my-project
+--- ascii powerline 200
+* Claude Opus 4.6 | ##-------- 19% | $0.62 | 4m | 7d:77%
+> main | +95/-12 | my-project
+--- unicode plain 40
+◆ Claude Opus 4.6 │ ▓░░░ 19%
+⎇ main │ my-project
+--- unicode plain 80
+◆ Claude Opus 4.6 │ ▓▓░░░░░░░░ 19% │ $0.62 │ 4m │ 7d:77%
+⎇ main │ +95/-12 │ my-project
+--- unicode plain 120
+◆ Claude Opus 4.6 │ ▓▓░░░░░░░░ 19% │ $0.62 │ 4m │ 7d:77%
+⎇ main │ +95/-12 │ my-project
+--- unicode plain 200
+◆ Claude Opus 4.6 │ ▓▓░░░░░░░░ 19% │ $0.62 │ 4m │ 7d:77%
+⎇ main │ +95/-12 │ my-project
+--- unicode powerline 40
+◆ Claude Opus 4.6 │ ▓░░░ 19%
+⎇ main │ my-project
+--- unicode powerline 80
+◆ Claude Opus 4.6 │ ▓▓░░░░░░░░ 19% │ $0.62 │ 4m │ 7d:77%
+⎇ main │ +95/-12 │ my-project
+--- unicode powerline 120
+◆ Claude Opus 4.6 │ ▓▓░░░░░░░░ 19% │ $0.62 │ 4m │ 7d:77%
+⎇ main │ +95/-12 │ my-project
+--- unicode powerline 200
+◆ Claude Opus 4.6 │ ▓▓░░░░░░░░ 19% │ $0.62 │ 4m │ 7d:77%
+⎇ main │ +95/-12 │ my-project
+--- nerdfont plain 40
+󰚩 Claude Opus 4.6  ▓░░░ 19%
+ main  my-project
+--- nerdfont plain 80
+󰚩 Claude Opus 4.6  ▓▓░░░░░░░░ 19%  $0.62  4m  7d:77%
+ main  +95/-12  my-project
+--- nerdfont plain 120
+󰚩 Claude Opus 4.6  ▓▓░░░░░░░░ 19%  $0.62  4m  7d:77%
+ main  +95/-12  my-project
+--- nerdfont plain 200
+󰚩 Claude Opus 4.6  ▓▓░░░░░░░░ 19%  $0.62  4m  7d:77%
+ main  +95/-12  my-project
+--- nerdfont powerline 40
+󰚩 Claude Opus 4.6  ▓░░░ 19%
+ main  my-project
+--- nerdfont powerline 80
+󰚩 Claude Opus 4.6  ▓▓░░░░░░░░ 19%  $0.62  4m  7d:77%
+ main  +95/-12  my-project
+--- nerdfont powerline 120
+󰚩 Claude Opus 4.6  ▓▓░░░░░░░░ 19%  $0.62  4m  7d:77%
+ main  +95/-12  my-project
+--- nerdfont powerline 200
+󰚩 Claude Opus 4.6  ▓▓░░░░░░░░ 19%  $0.62  4m  7d:77%
+ main  +95/-12  my-project
+--- unicode plain 80 LANG=ja_JP.UTF-8
+◆ Claude Opus 4.6 │ ▓▓▒▒▒▒▒▒▒▒ 19% │ $0.62 │ 7d:77%
+⎇ main │ +95/-12 │ my-project

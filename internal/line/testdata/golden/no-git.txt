@@ -1,0 +1,75 @@
+--- ascii plain 40
+* Claude Opus 4.6 | #--- 37%
++140/-27 | scratch
+--- ascii plain 80
+* Claude Opus 4.6 | ####------ 37% | $1.05 | 6m | 5h:18% 7d:9%
++140/-27 | scratch
+--- ascii plain 120
+* Claude Opus 4.6 | ####------ 37% | $1.05 | 6m | 5h:18% 7d:9%
++140/-27 | scratch
+--- ascii plain 200
+* Claude Opus 4.6 | ####------ 37% | $1.05 | 6m | 5h:18% 7d:9%
++140/-27 | scratch
+--- ascii powerline 40
+* Claude Opus 4.6 | #--- 37%
++140/-27 | scratch
+--- ascii powerline 80
+* Claude Opus 4.6 | ####------ 37% | $1.05 | 6m | 5h:18% 7d:9%
++140/-27 | scratch
+--- ascii powerline 120
+* Claude Opus 4.6 | ####------ 37% | $1.05 | 6m | 5h:18% 7d:9%
++140/-27 | scratch
+--- ascii powerline 200
+* Claude Opus 4.6 | ####------ 37% | $1.05 | 6m | 5h:18% 7d:9%
++140/-27 | scratch
+--- unicode plain 40
+◆ Claude Opus 4.6 │ ▓░░░ 37%
++140/-27 │ scratch
+--- unicode plain 80
+◆ Claude Opus 4.6 │ ▓▓▓▓░░░░░░ 37% │ $1.05 │ 6m │ 5h:18% 7d:9%
++140/-27 │ scratch
+--- unicode plain 120
+◆ Claude Opus 4.6 │ ▓▓▓▓░░░░░░ 37% │ $1.05 │ 6m │ 5h:18% 7d:9%
++140/-27 │ scratch
+--- unicode plain 200
+◆ Claude Opus 4.6 │ ▓▓▓▓░░░░░░ 37% │ $1.05 │ 6m │ 5h:18% 7d:9%
++140/-27 │ scratch
+--- unicode powerline 40
+◆ Claude Opus 4.6 │ ▓░░░ 37%
++140/-27 │ scratch
+--- unicode powerline 80
+◆ Claude Opus 4.6 │ ▓▓▓▓░░░░░░ 37% │ $1.05 │ 6m │ 5h:18% 7d:9%
++140/-27 │ scratch
+--- unicode powerline 120
+◆ Claude Opus 4.6 │ ▓▓▓▓░░░░░░ 37% │ $1.05 │ 6m │ 5h:18% 7d:9%
++140/-27 │ scratch
+--- unicode powerline 200
+◆ Claude Opus 4.6 │ ▓▓▓▓░░░░░░ 37% │ $1.05 │ 6m │ 5h:18% 7d:9%
++140/-27 │ scratch
+--- nerdfont plain 40
+󰚩 Claude Opus 4.6  ▓░░░ 37%
++140/-27  scratch
+--- nerdfont plain 80
+󰚩 Claude Opus 4.6  ▓▓▓▓░░░░░░ 37%  $1.05  6m  5h:18% 7d:9%
++140/-27  scratch
+--- nerdfont plain 120
+󰚩 Claude Opus 4.6  ▓▓▓▓░░░░░░ 37%  $1.05  6m  5h:18% 7d:9%
++140/-27  scratch
+--- nerdfont plain 200
+󰚩 Claude Opus 4.6  ▓▓▓▓░░░░░░ 37%  $1.05  6m  5h:18% 7d:9%
++140/-27  scratch
+--- nerdfont powerline 40
+󰚩 Claude Opus 4.6  ▓░░░ 37%
++140/-27  scratch
+--- nerdfont powerline 80
+󰚩 Claude Opus 4.6  ▓▓▓▓░░░░░░ 37%  $1.05  6m  5h:18% 7d:9%
++140/-27  scratch
+--- nerdfont powerline 120
+󰚩 Claude Opus 4.6  ▓▓▓▓░░░░░░ 37%  $1.05  6m  5h:18% 7d:9%
++140/-27  scratch
+--- nerdfont powerline 200
+󰚩 Claude Opus 4.6  ▓▓▓▓░░░░░░ 37%  $1.05  6m  5h:18% 7d:9%
++140/-27  scratch
+--- unicode plain 80 LANG=ja_JP.UTF-8
+◆ Claude Opus 4.6 │ ▓▓▓▓▒▒▒▒▒▒ 37% │ 5h:18% 7d:9%
++140/-27 │ scratch

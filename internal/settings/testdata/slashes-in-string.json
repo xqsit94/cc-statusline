@@ -1,0 +1,5 @@
+{
+  "docs": "see https://example.com/// for details",
+  "note": "a /* not a comment */ string",
+  "theme": "dark"
+}

@@ -1,0 +1,75 @@
+--- ascii plain 40
+* Claude Opus 4.6 | 92% ! 1M
+> main | api-server
+--- ascii plain 80
+* Claude Opus 4.6 | #########- 92% ! 1M | $15.30 | 5h:85% 7d:62%
+> main | +500/-120 | api-server
+--- ascii plain 120
+* Claude Opus 4.6 | #########- 92% ! 1M | $15.30 | 45m | 5h:85% 7d:62%
+> main | +500/-120 | api-server
+--- ascii plain 200
+* Claude Opus 4.6 | #########- 92% ! 1M | $15.30 | 45m | 5h:85% 7d:62%
+> main | +500/-120 | api-server
+--- ascii powerline 40
+* Claude Opus 4.6 | 92% ! 1M
+> main | api-server
+--- ascii powerline 80
+* Claude Opus 4.6 | #########- 92% ! 1M | $15.30 | 5h:85% 7d:62%
+> main | +500/-120 | api-server
+--- ascii powerline 120
+* Claude Opus 4.6 | #########- 92% ! 1M | $15.30 | 45m | 5h:85% 7d:62%
+> main | +500/-120 | api-server
+--- ascii powerline 200
+* Claude Opus 4.6 | #########- 92% ! 1M | $15.30 | 45m | 5h:85% 7d:62%
+> main | +500/-120 | api-server
+--- unicode plain 40
+◆ Claude Opus 4.6 │ 92% ⚠ 1M
+⎇ main │ api-server
+--- unicode plain 80
+◆ Claude Opus 4.6 │ ▓▓▓▓▓▓▓▓▓░ 92% ⚠ 1M │ $15.30 │ 5h:85% 7d:62%
+⎇ main │ +500/-120 │ api-server
+--- unicode plain 120
+◆ Claude Opus 4.6 │ ▓▓▓▓▓▓▓▓▓░ 92% ⚠ 1M │ $15.30 │ 45m │ 5h:85% 7d:62%
+⎇ main │ +500/-120 │ api-server
+--- unicode plain 200
+◆ Claude Opus 4.6 │ ▓▓▓▓▓▓▓▓▓░ 92% ⚠ 1M │ $15.30 │ 45m │ 5h:85% 7d:62%
+⎇ main │ +500/-120 │ api-server
+--- unicode powerline 40
+◆ Claude Opus 4.6 │ 92% ⚠ 1M
+⎇ main │ api-server
+--- unicode powerline 80
+◆ Claude Opus 4.6 │ ▓▓▓▓▓▓▓▓▓░ 92% ⚠ 1M │ $15.30 │ 5h:85% 7d:62%
+⎇ main │ +500/-120 │ api-server
+--- unicode powerline 120
+◆ Claude Opus 4.6 │ ▓▓▓▓▓▓▓▓▓░ 92% ⚠ 1M │ $15.30 │ 45m │ 5h:85% 7d:62%
+⎇ main │ +500/-120 │ api-server
+--- unicode powerline 200
+◆ Claude Opus 4.6 │ ▓▓▓▓▓▓▓▓▓░ 92% ⚠ 1M │ $15.30 │ 45m │ 5h:85% 7d:62%
+⎇ main │ +500/-120 │ api-server
+--- nerdfont plain 40
+󰚩 Claude Opus 4.6  92%  1M
+ main  api-server
+--- nerdfont plain 80
+󰚩 Claude Opus 4.6  ▓▓▓▓▓▓▓▓▓░ 92%  1M  $15.30  5h:85% 7d:62%
+ main  +500/-120  api-server
+--- nerdfont plain 120
+󰚩 Claude Opus 4.6  ▓▓▓▓▓▓▓▓▓░ 92%  1M  $15.30  45m  5h:85% 7d:62%
+ main  +500/-120  api-server
+--- nerdfont plain 200
+󰚩 Claude Opus 4.6  ▓▓▓▓▓▓▓▓▓░ 92%  1M  $15.30  45m  5h:85% 7d:62%
+ main  +500/-120  api-server
+--- nerdfont powerline 40
+󰚩 Claude Opus 4.6  92%  1M
+ main  api-server
+--- nerdfont powerline 80
+󰚩 Claude Opus 4.6  ▓▓▓▓▓▓▓▓▓░ 92%  1M  $15.30  5h:85% 7d:62%
+ main  +500/-120  api-server
+--- nerdfont powerline 120
+󰚩 Claude Opus 4.6  ▓▓▓▓▓▓▓▓▓░ 92%  1M  $15.30  45m  5h:85% 7d:62%
+ main  +500/-120  api-server
+--- nerdfont powerline 200
+󰚩 Claude Opus 4.6  ▓▓▓▓▓▓▓▓▓░ 92%  1M  $15.30  45m  5h:85% 7d:62%
+ main  +500/-120  api-server
+--- unicode plain 80 LANG=ja_JP.UTF-8
+◆ Claude Opus 4.6 │ ▓▓▓▓▓▓▓▓▓▒ 92% ⚠ 1M │ 5h:85% 7d:62%
+⎇ main │ +500/-120 │ api-server

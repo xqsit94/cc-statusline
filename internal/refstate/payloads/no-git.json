@@ -1,0 +1,19 @@
+{
+  "model": {"id": "claude-opus-4-6", "display_name": "Claude Opus 4.6"},
+  "workspace": {"current_dir": "/home/u/scratch", "project_dir": "/home/u/scratch"},
+  "cost": {
+    "total_cost_usd": 1.05,
+    "total_duration_ms": 360000,
+    "total_lines_added": 140,
+    "total_lines_removed": 27
+  },
+  "context_window": {
+    "context_window_size": 200000,
+    "total_input_tokens": 74000,
+    "used_percentage": 37
+  },
+  "rate_limits": {
+    "five_hour": {"used_percentage": 18, "resets_at": 1785951600},
+    "seven_day": {"used_percentage": 9, "resets_at": 1786383600}
+  }
+}
