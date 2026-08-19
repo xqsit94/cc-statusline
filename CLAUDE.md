@@ -5,8 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 A Claude Code status line: one static Go binary that reads a JSON payload on
-stdin and prints one or two lines. No Node, no Python, no subprocesses in the
-render path, no network. Go 1.26+.
+stdin and prints one or two lines. No Node, no Python, no subprocesses, no
+network — in the render path. `update` is the one command that leaves it, to
+fetch a release; every other subcommand touches only the filesystem. Go 1.26+.
 
 ## Commands
 
@@ -45,7 +46,7 @@ The specialised targets:
 package at the module root. Arg dispatch and the outermost recover live in
 `main.go`; `cmd.Main` routes to one function per subcommand (`render`,
 `capture`, `preview`, `init`, `config`, `uninstall`, `doctor`, `version`,
-`spike`).
+`update`, `spike`).
 
 ### The render path
 

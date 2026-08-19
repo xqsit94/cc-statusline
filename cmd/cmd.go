@@ -47,6 +47,11 @@ const Usage = `cc-statusline — a Claude Code status line
   cc-statusline version
         Version, commit, and build date.
 
+  cc-statusline update [--check] [--force]
+        Check GitHub for a newer release. --check only reports it;
+        --force downloads, verifies its checksum, and replaces this
+        binary. The only command here that touches the network.
+
   cc-statusline spike capture [-- CMD [ARGS...]]
   cc-statusline spike report
         M0 contract verification. Temporary; removed when TODOS.md's
@@ -76,6 +81,8 @@ func Main(args []string, env map[string]string) int {
 		return Doctor(args[1:], env, os.Stdout, os.Stderr)
 	case "version":
 		return Version(os.Stdout)
+	case "update":
+		return Update(args[1:], os.Stdout, os.Stderr)
 	case "spike":
 		return Spike(args[1:], os.Stdin, os.Stdout)
 	case "-h", "--help", "help":

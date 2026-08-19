@@ -13,8 +13,9 @@ questions at a glance and then gets out of the way.
 - **Am I near a rate limit?** — both windows, shown only when they matter
 - **Where am I?** — branch, diff, project
 
-One static binary. No Node, no Python, no subprocesses, no network. It reads a
-JSON payload on stdin and prints one or two lines.
+One static binary. No Node, no Python, no subprocesses, no network — in the
+render path. It reads a JSON payload on stdin and prints one or two lines.
+`update` is the one command that reaches the network, and only when you run it.
 
 ---
 
@@ -51,6 +52,16 @@ bytes — and it backs up `settings.json` before touching it. If that file has
 comments or a trailing comma in it, `init` **declines to edit it** and prints
 the block for you to paste in yourself; see
 [Why it refuses a settings.json with comments](#why-init-refuses-a-settingsjson-with-comments).
+
+### Updating
+
+```sh
+cc-statusline update           # check GitHub for a newer release
+cc-statusline update --force   # download it, verify its checksum, install it
+```
+
+Same checksum verification as `install.sh`: it refuses to install a release
+whose `checksums.txt` doesn't account for the archive it downloaded.
 
 ---
 
