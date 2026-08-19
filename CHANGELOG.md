@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.2.1 — 2026-08-19
+
+### Added
+
+- **`cc-statusline update`.** Checks GitHub for a newer release; `--force`
+  downloads the platform archive, verifies its SHA-256 against
+  `checksums.txt` exactly as `install.sh` does, and atomically replaces the
+  running binary. The one command that leaves the render path's no-network
+  guarantee — README and CLAUDE.md now scope that claim accordingly.
+
 ## v0.2.0 — 2026-08-19
 
 ### Added
